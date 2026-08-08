@@ -1,0 +1,309 @@
+{
+  "schema_version": "1.0",
+  "ruleset_version": "2026.08.1",
+  "tool": {"name": "comfyharden", "version": "0.1.0"},
+  "scan": {
+    "started_at": "2026-08-08T10:15:00Z",
+    "duration_seconds": 41.7,
+    "target": {
+      "root": "/opt/comfyui",
+      "core_version": "0.3.62",
+      "core_commit": "9f1c2ab",
+      "manager_present": true,
+      "manager_version": "3.29.0",
+      "url_probed": "http://127.0.0.1:8188",
+      "network_probe_authorized": true
+    },
+    "notes": "Static collectors ran fully. Network collector ran against the authorized loopback target only. IOC data age: 3 days."
+  },
+  "summary": {
+    "grade": "F",
+    "grade_reason": "One or more high-confidence Critical findings: CHS finding sec-net-001 (networked path reachable without auth) and node-mal-001 (known-malicious node present).",
+    "counts": {"critical": 3, "high": 4, "medium": 2, "low": 2, "info": 1},
+    "by_category": {
+      "exposure": 2,
+      "custom-node-code": 3,
+      "known-vulnerable-version": 2,
+      "model-file": 1,
+      "host": 2,
+      "secret": 1,
+      "dependency": 1
+    }
+  },
+  "findings": [
+    {
+      "fingerprint": "sec-net-001",
+      "check_id": "EXP-002",
+      "title": "ComfyUI reachable with no authenticating layer",
+      "category": "exposure",
+      "severity": "critical",
+      "cvss": {"version": "4.0", "score": 9.3, "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H"},
+      "confidence": "high",
+      "location": {"kind": "endpoint", "path": "GET /system_stats"},
+      "evidence": "HTTP 200 with no auth challenge; no reverse-proxy auth signature observed.",
+      "description": "The instance answers unauthenticated API requests. ComfyUI core has no authentication, so any reachable client can submit workflows via POST /prompt.",
+      "impact": "Any network-reachable client can execute an arbitrary node graph as the ComfyUI process user.",
+      "remediation": {
+        "class": "config",
+        "auto_fixable": false,
+        "summary": "Bind to loopback or a private interface and require an authenticating TLS proxy.",
+        "action": "Remove non-loopback --listen; place nginx/Caddy/Cloudflare Access in front with TLS and auth.",
+        "rollback": "Restore the prior launch configuration.",
+        "gate": "review-required"
+      },
+      "references": [
+        {"type": "policy", "url": "https://github.com/comfyanonymous/ComfyUI/blob/master/SECURITY.md"},
+        {"type": "incident", "url": "https://thehackernews.com/2026/04/over-1000-exposed-comfyui-instances.html"}
+      ]
+    },
+    {
+      "fingerprint": "sec-net-002",
+      "check_id": "EXP-001",
+      "title": "Bind address is non-loopback",
+      "category": "exposure",
+      "severity": "critical",
+      "confidence": "high",
+      "location": {"kind": "config", "path": "deploy/comfyui.service", "symbol": "ExecStart"},
+      "evidence": "ExecStart=... python main.py --listen 0.0.0.0 --port 8188",
+      "description": "The launch configuration binds all interfaces via --listen 0.0.0.0.",
+      "impact": "Exposes every unauthenticated endpoint to the network.",
+      "remediation": {
+        "class": "config",
+        "auto_fixable": false,
+        "summary": "Bind 127.0.0.1 and reach the instance through an authenticating proxy.",
+        "action": "Change --listen 0.0.0.0 to loopback; add proxy.",
+        "rollback": "Restore ExecStart.",
+        "gate": "review-required"
+      },
+      "references": [{"type": "source", "url": "https://raw.githubusercontent.com/comfyanonymous/ComfyUI/master/comfy/cli_args.py"}]
+    },
+    {
+      "fingerprint": "node-mal-001",
+      "check_id": "PATCH-007",
+      "title": "Known-malicious custom node present",
+      "category": "known-vulnerable-version",
+      "severity": "critical",
+      "cvss": {"version": "4.0", "score": 9.5, "vector": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H"},
+      "confidence": "high",
+      "location": {"kind": "file", "path": "custom_nodes/ComfyUI-Upscaler-4K"},
+      "evidence": "Directory name and file hashes match the Upscaler-4K / Akira Stealer IOC set; payload staged under scripts/.",
+      "description": "This node matches a known info-stealer campaign that hid its payload in a scripts/ subfolder and persisted a hidden executable.",
+      "impact": "Credential and wallet theft, persistence, and outbound exfiltration when the node loads.",
+      "remediation": {
+        "class": "quarantine",
+        "auto_fixable": false,
+        "summary": "Move the node out of custom_nodes to a quarantine location; do not delete; investigate persistence artifacts.",
+        "action": "Quarantine the directory, then check for AppData/Roaming/DisplayUpdater.exe and related persistence.",
+        "rollback": "Restore from quarantine only after confirming it is a false positive.",
+        "gate": "review-required"
+      },
+      "references": [{"type": "incident", "url": "https://blog.comfy.org/p/upscaler-4k-malicious-node-pack-post"}]
+    },
+    {
+      "fingerprint": "core-cve-001",
+      "check_id": "PATCH-001",
+      "title": "Core version predates the July 2026 traversal and XSS fixes",
+      "category": "known-vulnerable-version",
+      "severity": "high",
+      "confidence": "medium",
+      "location": {"kind": "config", "path": "core", "symbol": "version 0.3.62 / commit 9f1c2ab"},
+      "evidence": "Installed core resolves below the patched build for CVE-2026-56670/56672/56673 and GHSA-pj59-g5vv-74q4.",
+      "description": "Path traversal in LoadImage and model-preview, and stored XSS in /view and /userdata, were fixed in the July 2026 release.",
+      "impact": "Unauthenticated file-existence probing, limited file read, and token-stealing XSS when networked.",
+      "remediation": {
+        "class": "upgrade",
+        "auto_fixable": false,
+        "summary": "Upgrade core to the patched release.",
+        "action": "Update ComfyUI core; re-run smoke-test workflows before returning to service.",
+        "rollback": "Pin the prior commit if a workflow regresses.",
+        "gate": "review-required"
+      },
+      "references": [{"type": "advisory", "id": "CVE-2026-56673", "url": "https://github.com/Comfy-Org/ComfyUI/security/advisories/GHSA-rvxv-29p8-pxgq"}]
+    },
+    {
+      "fingerprint": "mgr-cve-001",
+      "check_id": "PATCH-003",
+      "title": "ComfyUI-Manager below 3.38 (config-exposure RCE)",
+      "category": "known-vulnerable-version",
+      "severity": "high",
+      "confidence": "high",
+      "location": {"kind": "config", "path": "custom_nodes/ComfyUI-Manager", "symbol": "version 3.29.0"},
+      "evidence": "Manager 3.29.0 stores config under user/default/, reachable through the core web API (CVE-2025-67303).",
+      "description": "An unauthenticated attacker can read and rewrite Manager config to downgrade the security level and reach RCE.",
+      "impact": "Remote code execution on a networked instance.",
+      "remediation": {
+        "class": "upgrade",
+        "auto_fixable": false,
+        "summary": "Upgrade Manager to 3.38+ and core to 0.3.76+, then run the userdata migration.",
+        "action": "Update Manager and core; follow the userdata security migration guide.",
+        "rollback": "N/A; keep a backup of user/ before migrating.",
+        "gate": "review-required"
+      },
+      "references": [{"type": "advisory", "id": "CVE-2025-67303", "url": "https://xlab.tencent.com/en/2026/01/06/xlab-26-001/"}]
+    },
+    {
+      "fingerprint": "node-code-001",
+      "check_id": "NODE-006",
+      "title": "Custom node makes an exfiltration-shaped network call",
+      "category": "custom-node-code",
+      "severity": "high",
+      "confidence": "medium",
+      "location": {"kind": "file", "path": "custom_nodes/handy-tools/util.py", "start_line": 88, "end_line": 90, "symbol": "post_result"},
+      "evidence": "requests.post('https://discord.com/api/webhooks/REDACTED', ...) with a payload built from local file reads",
+      "description": "A hardcoded Discord webhook receives data assembled from local reads. This matches the LLMVISION exfiltration pattern, though it can also be a benign notification feature.",
+      "impact": "Potential exfiltration of local data when the node runs.",
+      "remediation": {
+        "class": "manual",
+        "auto_fixable": false,
+        "summary": "Review the node's intent; remove or gate the outbound call, and restrict egress at the host.",
+        "action": "Inspect post_result; confirm what is sent and to whom.",
+        "rollback": "N/A",
+        "gate": "review-required"
+      },
+      "references": [{"type": "incident", "url": "https://www.vpnmentor.com/news/comfyui-malicious-custom-node/"}]
+    },
+    {
+      "fingerprint": "node-code-002",
+      "check_id": "NODE-003",
+      "title": "Custom node installs a package at runtime",
+      "category": "custom-node-code",
+      "severity": "high",
+      "confidence": "high",
+      "location": {"kind": "file", "path": "custom_nodes/handy-tools/__init__.py", "start_line": 4, "end_line": 4, "symbol": "<module>"},
+      "evidence": "subprocess.run([sys.executable, '-m', 'pip', 'install', 'somepkg']) at import time",
+      "description": "Runtime pip install runs at ComfyUI startup. This is banned by the Comfy Registry standards and was part of the Upscaler-4K chain.",
+      "impact": "Uncontrolled dependency fetch and code execution at startup.",
+      "remediation": {
+        "class": "manual",
+        "auto_fixable": false,
+        "summary": "Declare the dependency in requirements.txt and remove the runtime install.",
+        "action": "Move 'somepkg' to requirements.txt; delete the subprocess call.",
+        "rollback": "Revert the node file.",
+        "gate": "review-required"
+      },
+      "references": [{"type": "policy", "url": "https://docs.comfy.org/registry/standards"}]
+    },
+    {
+      "fingerprint": "model-001",
+      "check_id": "MODEL-002",
+      "title": "Checkpoint contains a dangerous pickle import",
+      "category": "model-file",
+      "severity": "critical",
+      "confidence": "high",
+      "location": {"kind": "model", "path": "models/checkpoints/unknown-merge.ckpt"},
+      "evidence": "Static opcode scan found a GLOBAL/REDUCE referencing 'posix.system' (not on the safe allowlist). File not deserialized.",
+      "description": "The checkpoint's pickle stream references a shell-exec callable, which would run on load.",
+      "impact": "Code execution when the checkpoint is loaded.",
+      "remediation": {
+        "class": "quarantine",
+        "auto_fixable": false,
+        "summary": "Quarantine the file; do not load it; prefer a safetensors equivalent from a trusted source.",
+        "action": "Move the file to quarantine and record its source.",
+        "rollback": "Restore only if confirmed safe by an independent tool.",
+        "gate": "review-required"
+      },
+      "references": [{"type": "issue", "url": "https://github.com/Comfy-Org/ComfyUI/issues/12245"}]
+    },
+    {
+      "fingerprint": "host-001",
+      "check_id": "HOST-001",
+      "title": "ComfyUI runs as root in the container",
+      "category": "host",
+      "severity": "high",
+      "confidence": "high",
+      "location": {"kind": "container", "path": "USER (unset)"},
+      "evidence": "Container image has no USER directive; process runs as uid 0.",
+      "description": "Running as root maximizes the blast radius of any node-level code execution.",
+      "impact": "A node RCE becomes host-root-equivalent inside the container.",
+      "remediation": {
+        "class": "config",
+        "auto_fixable": true,
+        "summary": "Add a non-root USER with a fixed UID/GID.",
+        "action": "Add a comfy user to the Dockerfile and set USER; align bind-mount ownership.",
+        "rollback": "Remove the USER directive.",
+        "gate": "review-required"
+      },
+      "references": [{"type": "guide", "url": "https://github.com/mmartial/ComfyUI-Nvidia-Docker"}]
+    },
+    {
+      "fingerprint": "host-002",
+      "check_id": "HOST-007",
+      "title": "Manager install flags enabled on a networked instance",
+      "category": "host",
+      "severity": "high",
+      "confidence": "high",
+      "location": {"kind": "config", "path": "user/default/ComfyUI-Manager/config.ini", "symbol": "security_level=weak"},
+      "evidence": "security_level=weak; allow_pip_install=True",
+      "description": "A weak security level permits high-risk install operations regardless of network exposure.",
+      "impact": "Widens the Manager RCE surface on an exposed instance.",
+      "remediation": {
+        "class": "config",
+        "auto_fixable": true,
+        "summary": "Set security_level to strong and disable the install flags unless actively needed.",
+        "action": "Edit config.ini: security_level=strong; allow_pip_install=False; allow_git_url_install=False.",
+        "rollback": "Restore the prior config.ini.",
+        "gate": "review-required"
+      },
+      "references": [{"type": "docs", "url": "https://docs.comfy.org/manager/configuration"}]
+    },
+    {
+      "fingerprint": "secret-001",
+      "check_id": "SEC-001",
+      "title": "Cloud credential in the process environment",
+      "category": "secret",
+      "severity": "high",
+      "confidence": "medium",
+      "location": {"kind": "process", "path": "environ", "symbol": "AWS_SECRET_ACCESS_KEY"},
+      "evidence": "A secret-shaped value is present in the environment (value redacted).",
+      "description": "Any in-process custom node can read the whole environment. A secret placed here is readable by all nodes, not just the one that needs it.",
+      "impact": "A single malicious or compromised node can exfiltrate the credential.",
+      "remediation": {
+        "class": "secret",
+        "auto_fixable": false,
+        "summary": "Move the secret to a mounted file with restrictive permissions or a secrets manager; rotate it.",
+        "action": "Relocate the secret; the credential owner rotates it.",
+        "rollback": "N/A",
+        "gate": "human-only"
+      },
+      "references": [{"type": "research", "url": "https://labs.snyk.io/resources/hacking-comfyui-through-custom-nodes/"}]
+    },
+    {
+      "fingerprint": "dep-001",
+      "check_id": "DEP-002",
+      "title": "Unpinned dependency in a custom node",
+      "category": "dependency",
+      "severity": "low",
+      "confidence": "high",
+      "location": {"kind": "dependency", "path": "custom_nodes/handy-tools/requirements.txt", "symbol": "somepkg"},
+      "evidence": "somepkg has no version pin.",
+      "description": "An unpinned dependency can pull in a future compromised release.",
+      "impact": "Supply-chain exposure at the next install or update.",
+      "remediation": {
+        "class": "config",
+        "auto_fixable": true,
+        "summary": "Pin the dependency to a known-good version with a hash.",
+        "action": "Set somepkg==<version> and add a hash where feasible.",
+        "rollback": "Remove the pin.",
+        "gate": "review-required"
+      },
+      "references": [{"type": "tool", "url": "https://github.com/pypa/pip-audit"}]
+    }
+  ],
+  "bom": {
+    "format": "CycloneDX-1.6-ML",
+    "components": {
+      "nodes": [
+        {"name": "ComfyUI-Manager", "version": "3.29.0", "source": "custom_nodes", "flags": ["known-vulnerable"]},
+        {"name": "ComfyUI-Upscaler-4K", "version": "unknown", "source": "custom_nodes", "flags": ["known-malicious"]},
+        {"name": "handy-tools", "version": "unknown", "source": "git", "flags": ["runtime-pip-install", "exfil-shaped-call"]}
+      ],
+      "dependencies": [
+        {"name": "somepkg", "version": "unpinned", "declared_in": "custom_nodes/handy-tools/requirements.txt"}
+      ],
+      "models": [
+        {"path": "models/checkpoints/unknown-merge.ckpt", "format": "pickle", "flags": ["dangerous-opcode"]},
+        {"path": "models/checkpoints/base.safetensors", "format": "safetensors", "flags": []}
+      ]
+    }
+  }
+}

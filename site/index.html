@@ -1,0 +1,609 @@
+<style>
+  :root {
+    /* Light palette (cool, blue-biased neutrals) */
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface-2: #eceff5;
+    --ink: #0d1220;
+    --ink-2: #454c5c;
+    --muted: #656d7e;
+    --border: #dde3ec;
+    --border-strong: #c4ccda;
+    --accent: #0057ff;
+    --on-accent: #ffffff;
+    --accent-soft: rgba(0, 87, 255, 0.09);
+    --accent-line: rgba(0, 87, 255, 0.28);
+    --good: #0f8f48;
+    --warn: #b06d00;
+    --crit: #d23640;
+    --good-soft: rgba(15, 143, 72, 0.12);
+    --warn-soft: rgba(176, 109, 0, 0.12);
+    --crit-soft: rgba(210, 54, 64, 0.12);
+    --shadow: 0 1px 2px rgba(13, 18, 32, 0.04), 0 8px 24px rgba(13, 18, 32, 0.06);
+
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", "Consolas", monospace;
+    --sans: "Inter", system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", sans-serif;
+    --wrap: 1080px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0a0d14;
+      --surface: #111621;
+      --surface-2: #161d2a;
+      --ink: #e7ebf3;
+      --ink-2: #aab3c5;
+      --muted: #808ba0;
+      --border: #222a39;
+      --border-strong: #313c50;
+      --accent: #5182ff;
+      --on-accent: #071023;
+      --accent-soft: rgba(81, 130, 255, 0.13);
+      --accent-line: rgba(81, 130, 255, 0.36);
+      --good: #38b869;
+      --warn: #d99a3a;
+      --crit: #ff6169;
+      --good-soft: rgba(56, 184, 105, 0.15);
+      --warn-soft: rgba(217, 154, 58, 0.15);
+      --crit-soft: rgba(255, 97, 105, 0.15);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0a0d14;
+    --surface: #111621;
+    --surface-2: #161d2a;
+    --ink: #e7ebf3;
+    --ink-2: #aab3c5;
+    --muted: #808ba0;
+    --border: #222a39;
+    --border-strong: #313c50;
+    --accent: #5182ff;
+    --on-accent: #071023;
+    --accent-soft: rgba(81, 130, 255, 0.13);
+    --accent-line: rgba(81, 130, 255, 0.36);
+    --good: #38b869;
+    --warn: #d99a3a;
+    --crit: #ff6169;
+    --good-soft: rgba(56, 184, 105, 0.15);
+    --warn-soft: rgba(217, 154, 58, 0.15);
+    --crit-soft: rgba(255, 97, 105, 0.15);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  ::selection { background: var(--accent); color: var(--on-accent); }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px; gap: 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
+  .brand .dot { width: 10px; height: 10px; background: var(--accent); display: inline-block; }
+  .brand .tag {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--muted); border: 1px solid var(--border); padding: 2px 7px;
+  }
+  .toggle {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    background: transparent; color: var(--ink-2); border: 1px solid var(--border);
+    padding: 7px 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+  }
+  .toggle:hover { border-color: var(--accent); color: var(--ink); }
+
+  /* ---------- Section scaffolding ---------- */
+  section { border-bottom: 1px solid var(--border); }
+  .band { padding: 68px 0; }
+  .eyebrow {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 18px;
+  }
+  .eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--accent); display: inline-block; }
+  h2 {
+    font-family: var(--mono); font-weight: 600; letter-spacing: -0.015em;
+    font-size: clamp(24px, 3.4vw, 34px); line-height: 1.12; margin: 0 0 16px;
+    text-wrap: balance; color: var(--ink);
+  }
+  .lead { font-size: 19px; color: var(--ink-2); max-width: 62ch; margin: 0 0 8px; }
+  p { max-width: 66ch; }
+  .muted { color: var(--muted); }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 60px; position: relative; overflow: hidden; }
+  .hero-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 48px; align-items: center; }
+  .hero h1 {
+    font-family: var(--mono); font-weight: 600; letter-spacing: -0.03em;
+    font-size: clamp(40px, 7vw, 76px); line-height: 0.98; margin: 14px 0 20px;
+  }
+  .hero h1 .accent { color: var(--accent); }
+  .hero .lead { font-size: 20px; color: var(--ink-2); }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono);
+    font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    border: 1px solid var(--border); padding: 5px 10px;
+  }
+  .status-pill .pulse { width: 7px; height: 7px; background: var(--accent); display: inline-block; }
+
+  /* posture card (hero visual) */
+  .posture {
+    background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
+    padding: 22px;
+  }
+  .posture .cap {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); display: flex; justify-content: space-between; margin-bottom: 14px;
+  }
+  .scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .grade {
+    position: relative; text-align: center; font-family: var(--mono); font-weight: 700;
+    font-size: 26px; padding: 16px 0 12px; border: 1px solid var(--border); color: var(--ink);
+  }
+  .grade small { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+  .grade.g-a { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 40%, var(--border)); }
+  .grade.g-b { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 30%, var(--border)); }
+  .grade.g-c { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 30%, var(--border)); }
+  .grade.g-d { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 30%, var(--border)); }
+  .grade.g-f { background: var(--crit-soft); border-color: color-mix(in srgb, var(--crit) 40%, var(--border)); }
+  .grade.now { outline: 2px solid var(--crit); outline-offset: 2px; }
+  .grade.now small { color: var(--crit); }
+  .grade.target { outline: 2px dashed var(--good); outline-offset: 2px; }
+  .grade.target small { color: var(--good); }
+  .posture .legend { display: flex; justify-content: space-between; margin-top: 16px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .posture .legend b { color: var(--ink-2); font-weight: 600; }
+
+  /* ---------- Loop (three pillars mini) ---------- */
+  .loop { display: flex; align-items: stretch; gap: 0; margin-top: 26px; flex-wrap: wrap; }
+  .loop .step {
+    flex: 1 1 150px; border: 1px solid var(--border); background: var(--surface); padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .loop .step + .step { border-left: none; }
+  .loop .cmd { font-family: var(--mono); font-size: 13px; color: var(--accent); font-weight: 600; }
+  .loop .what { font-size: 13px; color: var(--ink-2); }
+  .loop .role { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+  /* ---------- Cards / grids ---------- */
+  .grid { display: grid; gap: 16px; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); padding: 22px;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .card:hover { border-color: var(--border-strong); transform: translateY(-3px); box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 8px; font-size: 18px; font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
+  .card p { margin: 0; font-size: 15px; color: var(--ink-2); max-width: none; }
+
+  .pillar .badge {
+    display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 13px;
+    color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-line);
+    padding: 5px 10px; margin-bottom: 14px; font-weight: 600;
+  }
+  .pillar .badge::before { content: "$"; color: var(--muted); }
+  .pillar .who {
+    display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 13px;
+    color: var(--ink-2); background: var(--surface-2); border: 1px dashed var(--border-strong);
+    padding: 5px 10px; margin-bottom: 14px; font-weight: 600;
+  }
+  .pillar .who::before { content: "\203A"; color: var(--accent); font-weight: 700; }
+  .pillar .outcome {
+    margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border-strong);
+    font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.02em;
+  }
+  .pillar .outcome b { color: var(--ink-2); font-weight: 600; }
+
+  /* coverage cards with icon */
+  .cov { display: flex; gap: 14px; align-items: flex-start; }
+  .cov .ic { flex: none; width: 34px; height: 34px; color: var(--accent); }
+  .cov .ic svg { width: 34px; height: 34px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+  .cov .k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 8px; display: block; }
+
+  /* ---------- Stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; }
+  .stat { border: 1px solid var(--border); background: var(--surface); padding: 22px; }
+  .stat .n { font-family: var(--mono); font-weight: 700; font-size: clamp(34px, 5vw, 46px); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .stat .n.crit { color: var(--crit); }
+  .stat .n.accent { color: var(--accent); }
+  .stat .l { margin-top: 12px; font-size: 14px; color: var(--ink-2); }
+  .stat .s { margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.02em; }
+
+  /* ---------- "by design" reassurance row ---------- */
+  .facts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; border: 1px solid var(--border); }
+  .fact { padding: 20px 18px; border-right: 1px solid var(--border); }
+  .fact:last-child { border-right: none; }
+  .fact .chk { color: var(--good); font-family: var(--mono); font-weight: 700; font-size: 14px; }
+  .fact h4 { margin: 10px 0 4px; font-size: 14px; font-family: var(--mono); font-weight: 600; }
+  .fact p { margin: 0; font-size: 13px; color: var(--muted); }
+
+  /* ---------- Best practices ---------- */
+  .bp { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 40px; counter-reset: bp; }
+  .bp .item {
+    display: flex; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--border); align-items: baseline;
+  }
+  .bp .num {
+    font-family: var(--mono); font-weight: 700; font-size: 14px; color: var(--accent);
+    font-variant-numeric: tabular-nums; flex: none; width: 28px;
+  }
+  .bp .item h4 { margin: 0 0 4px; font-size: 16px; font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
+  .bp .item p { margin: 0; font-size: 14px; color: var(--ink-2); max-width: none; }
+
+  /* ---------- Output / finding ---------- */
+  .out-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 24px; align-items: start; }
+  .files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .file { font-family: var(--mono); font-size: 12px; border: 1px solid var(--border); padding: 6px 10px; color: var(--ink-2); background: var(--surface); }
+  .file b { color: var(--accent); font-weight: 600; }
+  .finding { border: 1px solid var(--border); background: var(--surface); }
+  .finding .sev { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .sev-chip { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; }
+  .sev-chip.critical { background: var(--crit-soft); color: var(--crit); border: 1px solid color-mix(in srgb, var(--crit) 40%, transparent); }
+  .finding .body { padding: 16px; }
+  .finding .body h4 { margin: 0 0 6px; font-size: 16px; }
+  .finding .body p { margin: 0 0 14px; font-size: 14px; color: var(--ink-2); max-width: none; }
+  .finding .fix { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); background: var(--surface-2); border-left: 2px solid var(--accent); padding: 10px 12px; }
+  .finding .fix span { color: var(--muted); }
+  .finding .meta { display: flex; gap: 14px; margin-top: 14px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  /* ---------- Roadmap ---------- */
+  .road { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--border); }
+  .phase { padding: 22px 20px; border-right: 1px solid var(--border); }
+  .phase:last-child { border-right: none; }
+  .phase .p { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+  .phase h4 { margin: 10px 0 8px; font-size: 16px; font-family: var(--mono); font-weight: 600; }
+  .phase p { margin: 0; font-size: 13px; color: var(--muted); }
+  .phase.p1 { background: var(--accent-soft); }
+
+  /* ---------- Decisions ---------- */
+  .dec { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .decision { border: 1px solid var(--border); background: var(--surface); padding: 22px; }
+  .decision .q { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .decision h3 { margin: 8px 0 14px; font-size: 19px; font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt { font-family: var(--mono); font-size: 12.5px; border: 1px solid var(--border); padding: 6px 11px; color: var(--ink-2); }
+  .opt.rec { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .opt.rec::after { content: " ★"; }
+
+  /* ---------- Footer ---------- */
+  footer { padding: 52px 0 64px; }
+  .foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+  .foot .big { font-family: var(--mono); font-weight: 600; font-size: 22px; letter-spacing: -0.02em; }
+  .foot .note { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
+
+  /* ---------- Reveal animation ---------- */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.6s ease, transform 0.6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .card { transition: none; }
+    * { scroll-behavior: auto; }
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 900px) {
+    .hero-grid, .out-grid { grid-template-columns: 1fr; }
+    .g3, .stats, .road { grid-template-columns: 1fr 1fr; }
+    .facts { grid-template-columns: 1fr 1fr; }
+    .fact { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .bp { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 620px) {
+    .band { padding: 48px 0; }
+    .hero { padding: 44px 0 40px; }
+    .g3, .g2, .stats, .road, .dec, .facts { grid-template-columns: 1fr; }
+    .scale { grid-template-columns: repeat(5, 1fr); }
+    .loop .step + .step { border-left: 1px solid var(--border); }
+  }
+</style>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <div class="brand"><span class="dot"></span> ComfyHarden <span class="tag">read-only</span></div>
+    <button class="toggle" id="themeToggle" aria-label="Switch color theme">
+      <span id="themeLabel">Dark</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="status-pill"><span class="pulse"></span> Read-only · concept for review</span>
+        <h1>Comfy<span class="accent">Harden</span></h1>
+        <p class="lead">Read-only security evaluation for ComfyUI in production.</p>
+        <p class="muted" style="max-width:52ch;">Generative tools now run on strong hardware, on company and studio networks. That is where they earn their keep, and where they need real security. ComfyHarden evaluates an existing instance and shows you exactly where it stands. It changes nothing. The report it writes is what your coding agent uses to fix the problems.</p>
+        <div class="loop" aria-label="The workflow">
+          <div class="step"><span class="role">Assess</span><span class="cmd">comfyharden audit</span><span class="what">Read-only scan and a grade</span></div>
+          <div class="step"><span class="role">Remediate</span><span class="cmd">your coding agent</span><span class="what">Fixes the report, guided by skills</span></div>
+          <div class="step"><span class="role">Verify</span><span class="cmd">comfyharden verify</span><span class="what">Confirm the fixes landed</span></div>
+        </div>
+      </div>
+      <aside class="posture" aria-label="Example security grade">
+        <div class="cap"><span>Instance posture</span><span>example</span></div>
+        <div class="scale">
+          <div class="grade g-a">A<small>Hardened</small></div>
+          <div class="grade g-b target">B<small>After harden</small></div>
+          <div class="grade g-c">C</div>
+          <div class="grade g-d">D</div>
+          <div class="grade g-f now">F<small>Now</small></div>
+        </div>
+        <div class="legend"><span>A default networked install often lands at <b>F</b></span><span><b>audit → fix → verify</b></span></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- WHY NOW -->
+  <section class="band">
+    <div class="wrap reveal">
+      <div class="eyebrow">Why now</div>
+      <h2>Production changes the rules</h2>
+      <p class="lead">ComfyUI is built to run locally and, by design, trusts anyone who can reach it. That is the right default on a laptop. On a network it means the operator owns security.</p>
+      <p class="muted">Comfy.org secures what it controls well: the registry scans and bans obfuscated nodes, and ComfyUI-Manager has security levels. ComfyHarden covers the other half, the deployment itself, which only you can see and configure. None of this is a knock on ComfyUI. It is simply what production readiness looks like for any high-powered tool on capable hardware.</p>
+      <div class="stats">
+        <div class="stat">
+          <div class="n crit">1,000+</div>
+          <div class="l">Exposed, unauthenticated ComfyUI instances hijacked into mining and proxy botnets in 2026.</div>
+          <div class="s">Censys, The Hacker News</div>
+        </div>
+        <div class="stat">
+          <div class="n crit">9.8</div>
+          <div class="l">Severity of an unauthenticated remote-code-execution flaw disclosed and patched in 2026 (CVE-2026-68771).</div>
+          <div class="s">NVD, VulnCheck</div>
+        </div>
+        <div class="stat">
+          <div class="n accent">0</div>
+          <div class="l">Built-in authentication in ComfyUI core. By design, so the security boundary is the operator's.</div>
+          <div class="s">ComfyUI SECURITY.md</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE SUITE -->
+  <section class="band">
+    <div class="wrap reveal">
+      <div class="eyebrow">The workflow</div>
+      <h2>Assess, remediate, verify</h2>
+      <p class="lead">ComfyHarden is read-only and runs two commands. Your coding agent does the fixing in between, guided by the skills that ship with the tool.</p>
+      <div class="grid g3" style="margin-top:26px;">
+        <div class="card pillar">
+          <span class="badge">comfyharden audit</span>
+          <h3>Assess</h3>
+          <p>A read-only scan across exposure, custom nodes, dependencies, model files, and host settings. It changes nothing and is safe to run on a live instance.</p>
+          <div class="outcome">Output: a single <b>A–F grade</b> and the report</div>
+        </div>
+        <div class="card pillar">
+          <span class="who">your coding agent</span>
+          <h3>Remediate</h3>
+          <p>Claude Code or any coding agent reads the report and applies the fixes under clear gates, guided by the shipped skills. ComfyHarden never touches the instance.</p>
+          <div class="outcome">Output: a <b>hardened instance</b>, changed by the agent</div>
+        </div>
+        <div class="card pillar">
+          <span class="badge">comfyharden verify</span>
+          <h3>Verify</h3>
+          <p>Re-scans and diffs against the earlier report by fingerprint, so you can confirm each fix landed and nothing regressed. Read-only too.</p>
+          <div class="outcome">Output: <b>confirmation</b> the findings cleared</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COVERAGE -->
+  <section class="band">
+    <div class="wrap reveal">
+      <div class="eyebrow">Coverage</div>
+      <h2>What it looks at</h2>
+      <p class="lead">Seven areas, matched against a curated feed of known ComfyUI issues. Nothing is executed and nothing is installed into ComfyUI.</p>
+      <div class="grid g3" style="margin-top:26px;">
+        <div class="card"><div class="cov"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/></svg></div><div><h3>Exposure &amp; access</h3><span class="k">bind · auth · tls · cors</span><p style="margin-top:8px;">Is it reachable, and is anything asking who you are.</p></div></div></div>
+        <div class="card"><div class="cov"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z"/><path d="M9 12l2 2 4-4"/></svg></div><div><h3>Core &amp; versions</h3><span class="k">cve · advisories</span><p style="margin-top:8px;">ComfyUI and Manager against known vulnerabilities.</p></div></div></div>
+        <div class="card"><div class="cov"><div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/><path d="M11 7.5h4a2 2 0 012 2v3.5"/></svg></div><div><h3>Custom nodes</h3><span class="k">static analysis · provenance</span><p style="margin-top:8px;">Code that runs at startup, phones home, or hides itself.</p></div></div></div>
+        <div class="card"><div class="cov"><div class="ic"><svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div><div><h3>Dependencies</h3><span class="k">osv · pinning · typosquats</span><p style="margin-top:8px;">The Python packages each node pulls in.</p></div></div></div>
+        <div class="card"><div class="cov"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M8 10.5v3l4 2 4-2v-3"/></svg></div><div><h3>Model files</h3><span class="k">pickle inspection</span><p style="margin-top:8px;">Checkpoints that can run code when loaded.</p></div></div></div>
+        <div class="card"><div class="cov"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v4M15 12v3"/></svg></div><div><h3>Secrets</h3><span class="k">env · config · workflows</span><p style="margin-top:8px;">Keys any node in the process could read.</p></div></div></div>
+        <div class="card"><div class="cov"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6"/><rect x="3" y="14" width="18" height="6"/><path d="M7 7h.01M7 17h.01"/></svg></div><div><h3>Host &amp; container</h3><span class="k">root · privileges · mounts</span><p style="margin-top:8px;">How much a compromised node could reach.</p></div></div></div>
+        <div class="card" style="display:flex;align-items:center;justify-content:center;background:var(--surface-2);border-style:dashed;"><p class="muted" style="margin:0;font-family:var(--mono);font-size:13px;text-align:center;">Extensible.<br>New checks arrive as feed<br>and rule updates.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BY DESIGN -->
+  <section class="band">
+    <div class="wrap reveal">
+      <div class="eyebrow">By design</div>
+      <h2>Safe to run on a live instance</h2>
+      <p class="lead" style="margin-bottom:26px;">The properties that make it credible to point at a production server.</p>
+      <div class="facts">
+        <div class="fact"><span class="chk">✓</span><h4>Read-only audit</h4><p>The scan changes nothing.</p></div>
+        <div class="fact"><span class="chk">✓</span><h4>Runs offline</h4><p>No deployment data leaves the host.</p></div>
+        <div class="fact"><span class="chk">✓</span><h4>No install</h4><p>It inspects from the outside.</p></div>
+        <div class="fact"><span class="chk">✓</span><h4>Report only</h4><p>The only thing it writes.</p></div>
+        <div class="fact"><span class="chk">✓</span><h4>Agent-ready</h4><p>Output a coding agent can act on.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BEST PRACTICES -->
+  <section class="band">
+    <div class="wrap reveal">
+      <div class="eyebrow">Baseline</div>
+      <h2>Eight best practices</h2>
+      <p class="lead">The standard ComfyHarden measures against, and what a coding agent works from the report to apply. These matter most once an instance is reachable beyond a single local user.</p>
+      <div class="bp" style="margin-top:22px;">
+        <div class="item"><span class="num">01</span><div><h4>Keep it on localhost</h4><p>Do not expose it directly. Reach it through an authenticating, TLS-terminating proxy or a VPN.</p></div></div>
+        <div class="item"><span class="num">02</span><div><h4>Require authentication</h4><p>Core has none, so it lives in the proxy or network. Multi-user mode is storage, not access control.</p></div></div>
+        <div class="item"><span class="num">03</span><div><h4>Stay current, set Manager to strong</h4><p>Update core and Manager. On a network, disable runtime pip and git installs.</p></div></div>
+        <div class="item"><span class="num">04</span><div><h4>Vet custom nodes</h4><p>Prefer verified publishers, read install scripts, avoid nodes that run code at import. Popularity is not trust.</p></div></div>
+        <div class="item"><span class="num">05</span><div><h4>Prefer safetensors</h4><p>Treat .ckpt, .pt, and .bin from untrusted sources as code, not data. They can execute on load.</p></div></div>
+        <div class="item"><span class="num">06</span><div><h4>Run with least privilege</h4><p>Non-root user or container. Never privileged, never the Docker socket, no broad host mounts.</p></div></div>
+        <div class="item"><span class="num">07</span><div><h4>Control secrets and egress</h4><p>Keep secrets out of the environment every node can read. Restrict outbound network access.</p></div></div>
+        <div class="item"><span class="num">08</span><div><h4>Assess before you expose</h4><p>Scan, fix, verify, and repeat on a schedule. Disable API nodes and metadata when not needed.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OUTPUT -->
+  <section class="band">
+    <div class="wrap reveal">
+      <div class="eyebrow">Output</div>
+      <h2>A grade, a fix list, and an agent brief</h2>
+      <div class="out-grid" style="margin-top:24px;">
+        <div>
+          <p class="muted">One scan produces a plain human summary that leads with a single grade, plus machine-readable files and the agent skills. Point Claude Code or any coding agent at the fix list, and it works through the findings under clear gates.</p>
+          <div class="files">
+            <span class="file"><b>report</b>.md</span>
+            <span class="file"><b>report</b>.json</span>
+            <span class="file"><b>report</b>.sarif</span>
+            <span class="file"><b>FIXES</b>.md</span>
+            <span class="file"><b>AGENTS</b>.md</span>
+          </div>
+          <p class="muted" style="margin-top:18px;font-size:14px;">The grade is deterministic and explains itself. One confirmed "reachable without authentication" is enough for an F, whatever else is clean.</p>
+        </div>
+        <div class="finding" aria-label="Example finding">
+          <div class="sev"><span class="sev-chip critical">Critical</span><span class="muted" style="font-family:var(--mono);font-size:12px;">EXP-002 · exposure</span></div>
+          <div class="body">
+            <h4>Reachable with no authentication</h4>
+            <p>The instance answers API requests with no login in front. Any client on the network can run a workflow, which means run code.</p>
+            <div class="fix"><span>fix →</span> bind 127.0.0.1 and add an authenticating TLS proxy<br><span>gate →</span> review-required · the agent applies, then verifies</div>
+            <div class="meta"><span>confidence: high</span><span>agent-actionable</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section class="band">
+    <div class="wrap reveal">
+      <div class="eyebrow">Roadmap</div>
+      <h2>How it gets built</h2>
+      <p class="lead" style="margin-bottom:26px;">Each phase is useful on its own. Phase one alone covers most of the documented incident classes.</p>
+      <div class="road">
+        <div class="phase p1"><div class="p">Phase 1</div><h4>Assess</h4><p>audit across the core areas, the threat feed, the report, and the agent skills.</p></div>
+        <div class="phase"><div class="p">Phase 2</div><h4>Verify &amp; breadth</h4><p>verify with fingerprint diffing, SARIF, the ML-BOM, and secrets and host checks.</p></div>
+        <div class="phase"><div class="p">Phase 3</div><h4>Freshness</h4><p>Signed feed updates, deeper node and secret scanning, workflow checks.</p></div>
+        <div class="phase"><div class="p">Phase 4</div><h4>Continuous</h4><p>A CI action, scheduled re-scans, and an optional local dashboard.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DECISIONS -->
+  <section class="band">
+    <div class="wrap reveal">
+      <div class="eyebrow">Direction</div>
+      <h2>The calls, decided</h2>
+      <p class="lead">The high-level choices are made. Here is where it landed. The chosen option is marked.</p>
+      <div class="dec" style="margin-top:24px;">
+        <div class="decision">
+          <div class="q">Naming</div>
+          <h3>What it is called</h3>
+          <div class="opts"><span class="opt rec">ComfyHarden</span><span class="opt">comfyguard</span><span class="opt">comfyscan</span></div>
+        </div>
+        <div class="decision">
+          <div class="q">Posture</div>
+          <h3>Does it change anything</h3>
+          <div class="opts"><span class="opt rec">read-only advisor</span><span class="opt">apply fixes itself</span></div>
+        </div>
+        <div class="decision">
+          <div class="q">Scope</div>
+          <h3>What gets built</h3>
+          <div class="opts"><span class="opt rec">two commands + agent skills</span><span class="opt">assess only</span></div>
+        </div>
+        <div class="decision">
+          <div class="q">Distribution</div>
+          <h3>Who it is for</h3>
+          <div class="opts"><span class="opt rec">open-source tool</span><span class="opt">internal only</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap foot">
+      <div>
+        <div class="big">Comfy<span style="color:var(--accent);">Harden</span></div>
+        <div class="note">Read-only security evaluation for ComfyUI.</div>
+      </div>
+      <div class="note">Concept for review · August 2026</div>
+    </div>
+  </footer>
+</main>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById("themeToggle");
+    var label = document.getElementById("themeLabel");
+
+    function systemDark() {
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+    function currentIsDark() {
+      var t = root.getAttribute("data-theme");
+      if (t === "dark") return true;
+      if (t === "light") return false;
+      return systemDark();
+    }
+    function sync() {
+      label.textContent = currentIsDark() ? "Light" : "Dark";
+    }
+    try {
+      var saved = localStorage.getItem("cg-theme");
+      if (saved === "dark" || saved === "light") root.setAttribute("data-theme", saved);
+    } catch (e) {}
+    sync();
+
+    btn.addEventListener("click", function () {
+      var next = currentIsDark() ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("cg-theme", next); } catch (e) {}
+      sync();
+    });
+
+    // Scroll reveal, respecting reduced motion
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var items = document.querySelectorAll(".reveal");
+    if (reduce || !("IntersectionObserver" in window)) {
+      items.forEach(function (el) { el.classList.add("in"); });
+    } else {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+        });
+      }, { threshold: 0.12 });
+      items.forEach(function (el) { io.observe(el); });
+    }
+  })();
+</script>

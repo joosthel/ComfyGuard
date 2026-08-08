@@ -1,0 +1,178 @@
+# Example ruleset entries for comfyharden.
+#
+# This shows the machine-readable format that the full catalog in docs/CHECKS.md
+# compiles to. Each entry is one check. The engine loads these, runs the named
+# detector against the collected Facts, and emits Findings using the shared
+# schema in docs/REPORTING.md. The full ruleset carries one entry per check ID.
+#
+# Fields:
+#   id            stable check ID (matches docs/CHECKS.md)
+#   title         short human title
+#   category      finding category
+#   severity      default CVSS 4.0 band; may be raised/lowered by the detector
+#   confidence    default confidence
+#   remediation   class + gate the agent plan must honor
+#   detector      which collector Facts to read and how to match
+#   references    citations attached to every finding from this check
+
+ruleset_version: "2026.08.1"
+
+checks:
+  - id: EXP-002
+    title: ComfyUI reachable with no authenticating layer
+    category: exposure
+    severity: critical
+    confidence: high
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: network
+      requires_authorization: true
+      logic: >
+        system_stats_status == 200 AND no_auth_challenge AND
+        not proxy_auth_signature_present
+    references:
+      - type: policy
+        url: https://github.com/comfyanonymous/ComfyUI/blob/master/SECURITY.md
+      - type: incident
+        url: https://thehackernews.com/2026/04/over-1000-exposed-comfyui-instances.html
+
+  - id: EXP-003
+    title: Permissive CORS disables the built-in Origin check
+    category: exposure
+    severity: high
+    confidence: high
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: [install, network]
+      logic: >
+        flag_present("--enable-cors-header") OR
+        response_header("Access-Control-Allow-Origin") == "*"
+    references:
+      - type: source
+        url: https://raw.githubusercontent.com/comfyanonymous/ComfyUI/master/server.py
+
+  - id: PATCH-002
+    title: Core vulnerable to LoadTrainingDataset pickle RCE
+    category: known-vulnerable-version
+    severity: critical
+    confidence: high
+    remediation:
+      class: upgrade
+      gate: review-required
+    detector:
+      collector: [install, node]
+      logic: >
+        version_lt(core, fixed_commit="94ee49b") AND
+        node_class_present("LoadTrainingDataset")
+      version_resolution: [package_metadata, git_commit, source_probe]
+    references:
+      - type: advisory
+        id: CVE-2026-68771
+        url: https://www.vulncheck.com/advisories/comfyui-unauthenticated-rce-via-loadtrainingdataset-pickle-deserialization
+      - type: fix
+        url: https://github.com/Comfy-Org/ComfyUI/pull/14543
+
+  - id: PATCH-007
+    title: Known-malicious artifact present (IOC match)
+    category: known-vulnerable-version
+    severity: critical
+    confidence: high
+    remediation:
+      class: quarantine
+      gate: review-required
+    detector:
+      collector: [node, dependency, host]
+      logic: match_ioc(ioc_feed)
+      ioc_examples:
+        node_dirs: ["ComfyUI_LLMVISION", "upscaler-4k", "lonemilk-upscalernew-4k", "ComfyUI-Upscaler-4K"]
+        pip_pins: ["ultralytics==8.3.41", "ultralytics==8.3.42", "ultralytics==8.3.45", "ultralytics==8.3.46"]
+    references:
+      - type: incident
+        url: https://blog.comfy.org/p/upscaler-4k-malicious-node-pack-post
+
+  - id: NODE-003
+    title: Custom node installs a package at runtime
+    category: custom-node-code
+    severity: high
+    confidence: high
+    remediation:
+      class: manual
+      gate: review-required
+    detector:
+      collector: node
+      method: ast
+      logic: >
+        call_matches(["subprocess.*", "pip.main", "ensure_package", "install_requirements"])
+        AND argument_contains("pip", "install")
+      escalate_if: at_import_time
+    references:
+      - type: policy
+        url: https://docs.comfy.org/registry/standards
+
+  - id: NODE-007
+    title: Custom node reads credential or wallet locations
+    category: custom-node-code
+    severity: critical
+    confidence: medium
+    remediation:
+      class: quarantine
+      gate: review-required
+    detector:
+      collector: node
+      method: ast
+      logic: >
+        path_read_matches([
+          "~/.ssh", "~/.aws", "*/Login Data", "*/wallet.dat",
+          "*/Local Storage/leveldb", "keyring"
+        ]) OR bulk_environ_dump()
+      escalate_if: co_occurs_with(["NODE-006", "NODE-008", "NODE-009"])
+    references:
+      - type: incident
+        url: https://www.vpnmentor.com/news/comfyui-malicious-custom-node/
+
+  - id: MODEL-002
+    title: Checkpoint contains a dangerous pickle import
+    category: model-file
+    severity: critical
+    confidence: high
+    remediation:
+      class: quarantine
+      gate: review-required
+    detector:
+      collector: model
+      method: pickle-opcode-allowlist
+      logic: >
+        opcode_scan_without_deserialization AND
+        references_global_outside_allowlist([
+          "os", "sys", "subprocess", "builtins", "posix", "eval", "exec"
+        ])
+      content_sniff: true   # classify by magic bytes, not extension
+    references:
+      - type: issue
+        url: https://github.com/Comfy-Org/ComfyUI/issues/12245
+      - type: tool
+        url: https://github.com/trailofbits/fickling
+
+  - id: HOST-007
+    title: Manager install flags enabled on a networked instance
+    category: host
+    severity: high
+    confidence: high
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: [manager, install]
+      logic: >
+        networked AND (
+          config("security_level") in ["weak", "normal-"] OR
+          config("allow_pip_install") == true OR
+          config("allow_git_url_install") == true
+        )
+    references:
+      - type: docs
+        url: https://docs.comfy.org/manager/configuration
