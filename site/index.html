@@ -343,7 +343,7 @@
         <span class="status-pill"><span class="pulse"></span> Read-only · concept for review</span>
         <h1>Comfy<span class="accent">Harden</span></h1>
         <p class="lead">Read-only security evaluation for ComfyUI in production.</p>
-        <p class="muted" style="max-width:52ch;">Generative tools now run on strong hardware, on company and studio networks. That is where they earn their keep, and where they need real security. ComfyHarden evaluates an existing instance and shows you exactly where it stands. It changes nothing. The report it writes is what your coding agent uses to fix the problems.</p>
+        <p class="muted" style="max-width:52ch;">Generative tools now run on strong hardware, on company and studio networks. That is where they earn their keep, and where they need real security. ComfyHarden evaluates an existing instance and shows you exactly where it stands. The assessment changes nothing. The report it writes is what your coding agent uses to fix the problems.</p>
         <div class="loop" aria-label="The workflow">
           <div class="step"><span class="role">Assess</span><span class="cmd">comfyharden audit</span><span class="what">Read-only scan and a grade</span></div>
           <div class="step"><span class="role">Remediate</span><span class="cmd">your coding agent</span><span class="what">Fixes the report, guided by skills</span></div>
@@ -396,7 +396,7 @@
     <div class="wrap reveal">
       <div class="eyebrow">The workflow</div>
       <h2>Assess, remediate, verify</h2>
-      <p class="lead">ComfyHarden is read-only and runs two commands. Your coding agent does the fixing in between, guided by the skills that ship with the tool.</p>
+      <p class="lead">ComfyHarden's assessment is read-only. Your coding agent does the fixing in between audit and verify, guided by the skills that ship with the tool.</p>
       <div class="grid g3" style="margin-top:26px;">
         <div class="card pillar">
           <span class="badge">comfyharden audit</span>
@@ -449,8 +449,37 @@
         <div class="fact"><span class="chk">✓</span><h4>Read-only audit</h4><p>The scan changes nothing.</p></div>
         <div class="fact"><span class="chk">✓</span><h4>Runs offline</h4><p>No deployment data leaves the host.</p></div>
         <div class="fact"><span class="chk">✓</span><h4>No install</h4><p>It inspects from the outside.</p></div>
-        <div class="fact"><span class="chk">✓</span><h4>Report only</h4><p>The only thing it writes.</p></div>
+        <div class="fact"><span class="chk">✓</span><h4>Reversible</h4><p>Snapshot before, roll back after.</p></div>
         <div class="fact"><span class="chk">✓</span><h4>Agent-ready</h4><p>Output a coding agent can act on.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SNAPSHOT / DRIFT / RESTORE -->
+  <section class="band">
+    <div class="wrap reveal">
+      <div class="eyebrow">Reversibility</div>
+      <h2>Snapshot, detect drift, roll back</h2>
+      <p class="lead">Capture a known-good state before anyone touches the instance. Later, see exactly what changed, and roll back if a change broke it or a scan shows tampering. The snapshot format supersets ComfyUI-Manager's own, so it stays restore-compatible.</p>
+      <div class="grid g3" style="margin-top:26px;">
+        <div class="card pillar">
+          <span class="badge">comfyharden snapshot</span>
+          <h3>Capture</h3>
+          <p>One timestamped JSON of the full state: versions and commits, node hashes, dependencies, launch flags, and Manager config. Read-only.</p>
+          <div class="outcome">Output: a <b>baseline</b> you can compare and restore to</div>
+        </div>
+        <div class="card pillar">
+          <span class="badge">comfyharden diff</span>
+          <h3>Detect drift</h3>
+          <p>Compare two states, or a baseline against live. A node file changed without its commit changing, a planted node, a config downgrade: the shape of a compromise. Also catches "what changed since it last worked."</p>
+          <div class="outcome">Output: <b>DRIFT findings</b>, graded like any other</div>
+        </div>
+        <div class="card pillar">
+          <span class="badge">comfyharden restore</span>
+          <h3>Roll back</h3>
+          <p>Writes a rollback plan and script by default, changing nothing. The one command that can mutate the instance, only with <b>--apply</b>, and even then it never deletes, only quarantines.</p>
+          <div class="outcome">Output: a <b>reversible rollback</b> to the baseline</div>
+        </div>
       </div>
     </div>
   </section>
@@ -512,8 +541,8 @@
       <p class="lead" style="margin-bottom:26px;">Each phase is useful on its own. Phase one alone covers most of the documented incident classes.</p>
       <div class="road">
         <div class="phase p1"><div class="p">Phase 1</div><h4>Assess</h4><p>audit across the core areas, the threat feed, the report, and the agent skills.</p></div>
-        <div class="phase"><div class="p">Phase 2</div><h4>Verify &amp; breadth</h4><p>verify with fingerprint diffing, SARIF, the ML-BOM, and secrets and host checks.</p></div>
-        <div class="phase"><div class="p">Phase 3</div><h4>Freshness</h4><p>Signed feed updates, deeper node and secret scanning, workflow checks.</p></div>
+        <div class="phase"><div class="p">Phase 2</div><h4>Snapshot &amp; verify</h4><p>snapshot and diff with drift detection, verify, SARIF, the ML-BOM, and secrets and host checks.</p></div>
+        <div class="phase"><div class="p">Phase 3</div><h4>Restore &amp; freshness</h4><p>restore (plan plus opt-in apply), signed feed updates, deeper node and secret scanning.</p></div>
         <div class="phase"><div class="p">Phase 4</div><h4>Continuous</h4><p>A CI action, scheduled re-scans, and an optional local dashboard.</p></div>
       </div>
     </div>
@@ -534,12 +563,12 @@
         <div class="decision">
           <div class="q">Posture</div>
           <h3>Does it change anything</h3>
-          <div class="opts"><span class="opt rec">read-only advisor</span><span class="opt">apply fixes itself</span></div>
+          <div class="opts"><span class="opt rec">read-only, one opt-in rollback</span><span class="opt">apply fixes itself</span></div>
         </div>
         <div class="decision">
           <div class="q">Scope</div>
           <h3>What gets built</h3>
-          <div class="opts"><span class="opt rec">two commands + agent skills</span><span class="opt">assess only</span></div>
+          <div class="opts"><span class="opt rec">five commands + agent skills</span><span class="opt">assess only</span></div>
         </div>
         <div class="decision">
           <div class="q">Distribution</div>

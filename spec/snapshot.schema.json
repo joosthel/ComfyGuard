@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/joosthel/comfyui-hardened/spec/snapshot.schema.json",
+  "title": "ComfyHarden snapshot",
+  "description": "A full state manifest of a ComfyUI instance. Supersets the ComfyUI-Manager snapshot format by embedding a byte-compatible copy as manager_snapshot.",
+  "type": "object",
+  "required": ["schema_version", "kind", "created_at", "manager_snapshot", "core"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"type": "string", "const": "snapshot/1.0"},
+    "kind": {"type": "string", "const": "comfyharden.snapshot"},
+    "tool": {
+      "type": "object",
+      "properties": {"name": {"type": "string"}, "version": {"type": "string"}}
+    },
+    "ruleset_version": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "fingerprint": {"type": "string", "description": "sha256 over the canonical state subset; whole-snapshot identity"},
+    "target": {
+      "type": "object",
+      "properties": {
+        "root": {"type": "string"},
+        "hostname": {"type": "string"},
+        "launch_source": {"type": "string", "enum": ["systemd", "docker", "script", "live", "unknown"]}
+      }
+    },
+    "manager_snapshot": {
+      "type": "object",
+      "description": "Byte-compatible ComfyUI-Manager snapshot object; restorable via `comfy node restore-snapshot`.",
+      "required": ["comfyui", "git_custom_nodes", "cnr_custom_nodes", "file_custom_nodes", "pips"],
+      "additionalProperties": false,
+      "properties": {
+        "comfyui": {"type": ["string", "null"], "description": "core git commit sha"},
+        "git_custom_nodes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {"hash": {"type": "string"}, "disabled": {"type": "boolean"}}
+          }
+        },
+        "cnr_custom_nodes": {"type": "object", "additionalProperties": {"type": "string"}},
+        "file_custom_nodes": {
+          "type": "array",
+          "items": {"type": "object", "properties": {"filename": {"type": "string"}, "disabled": {"type": "boolean"}}}
+        },
+        "pips": {"type": ["object", "null"], "additionalProperties": {"type": "string"}}
+      }
+    },
+    "core": {
+      "type": "object",
+      "required": ["version", "commit"],
+      "properties": {
+        "version": {"type": "string"},
+        "commit": {"type": ["string", "null"]},
+        "branch": {"type": "string"},
+        "dirty": {"type": "boolean"},
+        "remote": {"type": "string"}
+      }
+    },
+    "launch": {
+      "type": "object",
+      "properties": {
+        "source": {"type": "string"},
+        "source_path": {"type": "string"},
+        "argv": {"type": "array", "items": {"type": "string"}},
+        "cli_args": {"type": "object"},
+        "env_relevant": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "manager_config": {
+      "type": "object",
+      "properties": {
+        "present": {"type": "boolean"},
+        "version": {"type": "string"},
+        "config_path": {"type": "string"},
+        "config_path_is_legacy": {"type": "boolean"},
+        "security_level": {"type": "string", "enum": ["weak", "normal-", "normal", "strong"]},
+        "allow_pip_install": {"type": "boolean"},
+        "allow_git_url_install": {"type": "boolean"},
+        "channel_url": {"type": "string"},
+        "enabled_via": {"type": "string"},
+        "manager_ui_disabled": {"type": "boolean"}
+      }
+    },
+    "tls_proxy": {
+      "type": "object",
+      "properties": {
+        "tls_enabled": {"type": "boolean"},
+        "tls_keyfile_present": {"type": "boolean"},
+        "tls_certfile_present": {"type": "boolean"},
+        "proxy_detected": {"type": "string"},
+        "proxy_auth_signature": {"type": "boolean"}
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "source"],
+        "properties": {
+          "name": {"type": "string"},
+          "path": {"type": "string"},
+          "source": {"type": "string", "enum": ["git", "cnr", "file"]},
+          "repo_url": {"type": "string"},
+          "commit": {"type": "string"},
+          "version": {"type": "string"},
+          "disabled": {"type": "boolean"},
+          "tree_hash": {"type": "string"},
+          "files": {
+            "type": "array",
+            "items": {"type": "object", "properties": {"path": {"type": "string"}, "sha256": {"type": "string"}, "size": {"type": "integer"}}}
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "properties": {
+        "python_version": {"type": "string"},
+        "pip_freeze": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "version": {"type": "string"}}}},
+        "hashes": {"type": "object", "additionalProperties": {"type": "string"}},
+        "declared": {"type": "object"}
+      }
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "size"],
+        "properties": {
+          "path": {"type": "string"},
+          "format": {"type": "string"},
+          "size": {"type": "integer"},
+          "mtime": {"type": "string"},
+          "sha256": {"type": ["string", "null"], "description": "present only when captured with --hash-models"}
+        }
+      }
+    },
+    "host": {
+      "type": "object",
+      "properties": {
+        "os": {"type": "string"},
+        "python": {"type": "string"},
+        "pytorch": {"type": "string"},
+        "container": {"type": "boolean"},
+        "user": {"type": "string"},
+        "uid": {"type": "integer"},
+        "privileged": {"type": "boolean"},
+        "docker_socket_mounted": {"type": "boolean"}
+      }
+    },
+    "env_allowlist": {
+      "type": "object",
+      "description": "Names and presence only. Never values.",
+      "properties": {
+        "present_keys": {"type": "array", "items": {"type": "string"}},
+        "secret_shaped_present": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

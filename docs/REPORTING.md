@@ -1,10 +1,10 @@
 # Reporting contract
 
-`ComfyHarden` emits four artifacts from one scan. This document defines each, the
-finding schema they share, the deployment risk grade, and the agent remediation
-plan with its guardrails. Concrete examples are in `examples/`.
+`ComfyHarden` emits a set of artifacts. This document defines each, the finding
+schema they share, the deployment risk grade, and the agent remediation plan with
+its guardrails. Concrete examples are in `examples/`.
 
-The artifacts:
+The core artifacts from an `audit`:
 
 1. **Machine report** (`report.json`): the full, structured result. The source of
    truth. Includes a CycloneDX ML-BOM inventory of nodes, dependencies, and model
@@ -18,12 +18,26 @@ The artifacts:
 4. **Human report** (`report.md` or `.html`): a readable summary that leads with
    the grade and the top findings.
 
-`comfyharden verify` produces a fifth artifact on demand, a diff report that
-compares a fresh scan against a prior one by fingerprint. It is read-only too.
+`comfyharden verify` produces a diff-of-findings report that compares a fresh scan
+against a prior one by finding fingerprint. It is read-only too.
 
-All four derive from the same findings, so they never disagree. The machine
-report and plan are versioned by a `ruleset_version` and a `schema_version` so a
-report stays interpretable as the tool evolves.
+The `snapshot`, `diff`, and `restore` commands add three more artifacts, all
+sharing the same finding schema and grade where they carry findings (see
+[SNAPSHOT.md](SNAPSHOT.md)):
+
+5. **Snapshot** (`snapshot.json`): a full state manifest, plus a byte-compatible
+   ComfyUI-Manager copy. Written by `snapshot`; read-only.
+6. **Drift report** (`diff.json` + `diff.md`): what changed between two states, as
+   DRIFT findings that feed the same grade and SARIF. Written by `diff`; read-only.
+7. **Restore plan** (`RESTORE.md` + `restore.sh` + a Manager-format snapshot):
+   an ordered, gated rollback. Written by `restore`; read-only unless `--apply` is
+   passed, the one command that mutates an instance.
+
+All of these derive from the same findings and facts, so they never disagree. The
+reports and snapshots are versioned by a `ruleset_version` and a `schema_version`
+so an artifact stays interpretable as the tool evolves. DRIFT findings from `diff`
+use the exact finding object below, so they render into `report.sarif` and the
+grade with no special handling.
 
 ## 1. The finding object
 
@@ -69,7 +83,10 @@ Key design points:
 - **`fingerprint`** is a stable hash of the check, the normalized location, and
   the matched pattern. It lets two scans of the same deployment be diffed to see
   what was fixed, what regressed, and what is new. It is how the verify step in
-  the remediation plan confirms a finding is actually resolved.
+  the remediation plan confirms a finding is actually resolved. This per-finding
+  fingerprint is distinct from a snapshot's whole-snapshot `fingerprint` (a hash
+  over the canonical state, used by `diff` to detect a poisoned or mismatched
+  baseline, DRIFT-012).
 - **`severity` and `confidence` are separate.** Severity is the impact if real;
   confidence is how sure the scanner is that it is real. A consumer can filter on
   either. The deployment grade (section 3) weights them together.

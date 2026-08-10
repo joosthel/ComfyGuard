@@ -39,9 +39,12 @@ is safe.
 
 ## Decide the next step
 
+- Capture a baseline with `comfyharden snapshot <path> --out ./baseline` before
+  any change, so the fixes are reversible (see the comfyharden-restore skill).
 - If the grade is C or worse, hand `report.json` and `FIXES.md` to a coding agent
   running the comfyharden-remediation skill, and have the operator supervise.
 - Lead your summary to the operator with the grade and the one or two findings
   that matter most, not a wall of every finding.
 - After fixes are applied, run `comfyharden verify <path> --against <report.json>`
-  to confirm they landed.
+  to confirm they landed, and `comfyharden diff --against ./baseline/snapshot.json
+  <path>` to confirm nothing else drifted.

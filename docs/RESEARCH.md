@@ -233,7 +233,58 @@ metadata and the git commit, and matches against advisory data keyed on both,
 falling back to a source-level probe (presence of the patched containment logic)
 where version data is ambiguous.
 
-## 8. Primary sources
+## 8. Current ComfyUI security posture (August 2026)
+
+Read from the live repositories (core around v0.31.x). This is the baseline
+ComfyHarden aligns to: it recommends enabling what ComfyUI already provides, and
+does not flag as vendor bugs the things ComfyUI has already fixed.
+
+Already implemented in core:
+
+- Default bind is `127.0.0.1` (loopback). `--listen` with no value binds all
+  interfaces.
+- A default origin-only CSRF middleware rejects cross-site requests and Host/Origin
+  mismatches. `--enable-cors-header` **replaces** it with a permissive one that
+  also sends `Access-Control-Allow-Credentials: true`, so it is a downgrade, not
+  just permissive CORS (informs EXP-003).
+- A Content-Security-Policy header is emitted only when `--disable-api-nodes` is
+  set (informs EXP-007).
+- The v0.28.0 release shipped the path-traversal fixes (`LoadImage`,
+  `/experiment/models/preview`) and stored-XSS fixes (`/view`, `/userdata`), so
+  "core >= 0.28.0, ideally latest" is the highest-value version check
+  (informs PATCH-001).
+- `SENSITIVE_EXTRA_DATA_KEYS` stripping keeps Comfy.org tokens out of stored
+  history; the System User Protection API (`__` prefix, `user/__manager/`) puts
+  protected data outside the userdata web API.
+- Kill switches: `--disable-all-custom-nodes` (+ `--whitelist-custom-nodes`),
+  `--disable-api-nodes`, `--disable-metadata`, `--max-upload-size` (default 100MB).
+- Still no built-in authentication (confirmed). `--multi-user` is storage
+  partitioning, not access control.
+- ComfyUI-Manager is now first-party but opt-in via `--enable-manager`, with
+  `--disable-manager-ui` to strip its UI/endpoints on exposed servers.
+
+ComfyUI-Manager: `security_level` (weak/normal-/normal/strong, default normal);
+`allow_pip_install`/`allow_git_url_install` default False and take effect only on a
+loopback listener; a startup IOC denylist scanner that force-exits on a known-bad
+match; and the v3.38 migration of config/snapshots to the protected `user/__manager/`
+path (informs HOST-010).
+
+Comfy Registry: publish-time Standards ban `eval`/`exec`, runtime pip install, and
+obfuscation; verified publishers via "Claim My Node"; `comfy node validate` runs
+Ruff security rules. These are provenance signals ComfyHarden recommends preferring.
+
+Still absent, so they become recommendations rather than assumptions: no built-in
+auth (audit the proxy layer), no custom-node signing (so ComfyHarden's hash-based
+tamper detection, DRIFT-001/005, is the integrity signal), and no shipped desktop
+sandbox (reinforces the containment recommendation).
+
+Sources: `SECURITY.md`, `comfy/cli_args.py`, `server.py`, `app/user_manager.py`,
+`folder_paths.py` (Comfy-Org/ComfyUI, master); Comfy-Org/ComfyUI GHSA advisories
+(v0.28.0 fixes); Comfy-Org/ComfyUI-Manager (`glob/manager_server.py`,
+`glob/security_check.py`, the v3.38 migration doc); docs.comfy.org/registry/standards;
+Comfy-Org/comfy-cli (`comfy node validate`).
+
+## 9. Primary sources
 
 Official ComfyUI:
 

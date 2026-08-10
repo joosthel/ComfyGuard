@@ -2,18 +2,20 @@
 
 Read-only security evaluation for ComfyUI, with a report your coding agent can act on.
 
-ComfyHarden evaluates an existing ComfyUI installation and writes a report. It
-never changes the deployment. The report is the basis a developer's coding agent
-works from to fix the problems, guided by the agent skills that ship with the
-tool. It is built for instances that run on a company or local network, where the
-platform hands the security boundary to whoever runs the deployment.
+ComfyHarden evaluates an existing ComfyUI installation, writes a report, and can
+capture and compare full-state snapshots. The report is the basis a developer's
+coding agent works from to fix the problems, guided by the agent skills that ship
+with the tool. It is built for instances that run on a company or local network,
+where the platform hands the security boundary to whoever runs the deployment.
 
-The tool is strictly read-only. The only thing it writes is the report.
+Assessment is read-only: `audit`, `verify`, `snapshot`, and `diff` change nothing
+on the instance. The one exception is `restore --apply`, an opt-in, guarded
+rollback to a captured snapshot.
 
 This repository currently holds the concept, specification, threat research,
-check catalog, reporting contract, agent skills, and example outputs. It is the
-design the implementation is built against. Tool name: ComfyHarden. Command:
-`comfyharden`. Repository: `comfyui-hardened`.
+check catalog, reporting contract, snapshot format, agent skills, and example
+outputs. It is the design the implementation is built against. Tool name:
+ComfyHarden. Command: `comfyharden`. Repository: `comfyui-hardened`.
 
 ## Why this exists
 
@@ -38,8 +40,8 @@ disclosed and patched. The evidence base is in [docs/RESEARCH.md](docs/RESEARCH.
 
 ## How it works
 
-ComfyHarden assesses; a coding agent fixes. Two read-only commands, and the report
-in between.
+ComfyHarden assesses; a coding agent fixes. Five commands, four of them strictly
+read-only:
 
 - **`comfyharden audit <path>`** Read-only scan across core and versions, exposure
   and access, custom nodes, dependencies, and model files, plus secrets and host
@@ -47,14 +49,25 @@ in between.
   Safe to run on a live instance.
 - **`comfyharden verify <path>`** Re-assesses and diffs against a prior report by
   fingerprint, so you can confirm the agent's fixes landed and nothing regressed.
-  Read-only too.
+- **`comfyharden snapshot <path>`** Captures the full instance state (versions,
+  node commits, pip freeze, launch flags, Manager config, model inventory, and
+  per-node file hashes) into one timestamped JSON, restore-compatible with
+  ComfyUI-Manager.
+- **`comfyharden diff <a> <b>`** Compares two snapshots, or a snapshot against
+  live, and reports what changed: a tampered or planted node, a config downgrade,
+  or an exposure regression (a compromise indicator), and version changes (the
+  "what broke since it last worked" signal).
+- **`comfyharden restore <snapshot>`** Rolls back to a snapshot. Read-only by
+  default (it writes a plan and a script); the one command that mutates the
+  instance, only with `--apply`, and even then it never deletes.
 
-The report is written for a coding agent to act on. The agent skills in
-[skills/](skills/) teach Claude Code or any coding agent how to read the report,
-apply fixes under clear gates, and verify them. A curated, versioned ComfyUI
-threat feed (known CVEs and malicious-node indicators) drives the version and
-known-bad checks and ships bundled so the tool works offline. See
-[docs/SPEC.md](docs/SPEC.md) for the full specification.
+Snapshot before an agent touches anything, and you have a rollback if a fix
+breaks. The agent skills in [skills/](skills/) teach Claude Code or any coding
+agent how to read the report, apply fixes under clear gates, snapshot first, and
+verify. A curated, versioned ComfyUI threat feed (known CVEs and malicious-node
+indicators) drives the version and known-bad checks and ships bundled so the tool
+works offline. See [docs/SPEC.md](docs/SPEC.md) and
+[docs/SNAPSHOT.md](docs/SNAPSHOT.md) for the full specification.
 
 ## What it evaluates
 
@@ -112,11 +125,12 @@ The standing baseline for agents is in [AGENTS.md](AGENTS.md).
 
 ## Design principles
 
-Strictly read-only (the only thing written is the report). Never execute
-untrusted code or data. Offline-first. No installation into ComfyUI (it inspects
-from the outside). ComfyUI-aware, not a generic linter. Rank, do not just flag.
-Layered detection. Standards-based, agent-ready output. Deterministic and
-explainable. The reasoning is in [docs/CONCEPT.md](docs/CONCEPT.md).
+Read-only by default (only `restore --apply` ever changes the instance, and it
+never deletes). Never execute untrusted code or data. Offline-first. No
+installation into ComfyUI (it inspects from the outside). ComfyUI-aware, not a
+generic linter. Rank, do not just flag. Layered detection. Standards-based,
+agent-ready output. Deterministic and explainable. The reasoning is in
+[docs/CONCEPT.md](docs/CONCEPT.md).
 
 ## Output
 
@@ -126,9 +140,15 @@ explainable. The reasoning is in [docs/CONCEPT.md](docs/CONCEPT.md).
 - `report.sarif`: SARIF 2.1.0, so node findings show up in GitHub code scanning.
 - `FIXES.md`: an ordered, gated remediation plan for a coding agent. ComfyHarden
   writes it; it never applies it.
+- `snapshot.json`: a full state manifest (from `snapshot`), restore-compatible
+  with ComfyUI-Manager.
+- `diff.json` / `diff.md`: what changed between two states, as DRIFT findings
+  (from `diff`).
+- `RESTORE.md` / `restore.sh`: a gated rollback plan and script (from `restore`).
 
 The reporting and remediation contract is in [docs/REPORTING.md](docs/REPORTING.md),
-with worked examples in [examples/](examples/).
+the snapshot and drift format is in [docs/SNAPSHOT.md](docs/SNAPSHOT.md), with
+worked examples in [examples/](examples/).
 
 ## Planned usage
 
@@ -136,21 +156,31 @@ with worked examples in [examples/](examples/).
 # Assess an installation (read-only, safe anywhere you have access):
 comfyharden audit /opt/comfyui --out ./report
 
+# Capture a known-good baseline before anyone touches it:
+comfyharden snapshot /opt/comfyui --out ./baseline
+
 # Hand the report to a coding agent (Claude Code or similar) with the skills
 # in skills/, then let it work through FIXES.md under the gates.
 
 # Re-assess and diff to verify the agent's fixes:
 comfyharden verify /opt/comfyui --against ./report/report.json
+
+# Later, check for drift or tampering against the baseline:
+comfyharden diff --against ./baseline/snapshot.json /opt/comfyui
+
+# If a change broke the instance, roll back (dry-run; add --apply to perform it):
+comfyharden restore ./baseline/snapshot.json --target /opt/comfyui
 ```
 
 ## Roadmap
 
 1. Assess: `audit` across the core layers, the threat feed, the report, and the
    agent skills.
-2. Verify and breadth: `verify` with fingerprint diffing, SARIF, the ML-BOM, and
-   the secrets and host checks.
-3. Freshness: signature-verified feed refresh, YARA family rules, secret
-   scanning, and workflow analysis.
+2. Verify, snapshot, and breadth: `verify` fingerprint diffing; `snapshot` and
+   `diff` with the DRIFT family; SARIF; the ML-BOM; secrets and host checks.
+3. Restore and freshness: `restore` (plan plus opt-in `--apply`);
+   signature-verified feed refresh; YARA family rules; secret scanning; workflow
+   analysis.
 4. Continuous use: a CI action, scheduled re-scans, and an optional local
    dashboard.
 
@@ -166,12 +196,17 @@ least-privilege user, egress filtering, and sandboxing.
 
 - [docs/SPEC.md](docs/SPEC.md): the consolidated specification.
 - [docs/CONCEPT.md](docs/CONCEPT.md): problem, principles, architecture, roadmap.
-- [docs/CHECKS.md](docs/CHECKS.md): the full check catalog.
+- [docs/CHECKS.md](docs/CHECKS.md): the full check catalog, including the DRIFT
+  family.
 - [docs/REPORTING.md](docs/REPORTING.md): output formats and the agent remediation
   contract.
-- [docs/RESEARCH.md](docs/RESEARCH.md): the threat landscape and prior-art survey.
+- [docs/SNAPSHOT.md](docs/SNAPSHOT.md): the snapshot format, diff/drift detection,
+  and the restore model.
+- [docs/RESEARCH.md](docs/RESEARCH.md): the threat landscape, prior-art survey, and
+  current ComfyUI security posture.
 - [AGENTS.md](AGENTS.md): the standing security baseline for agents.
-- [skills/](skills/): agent skills for consuming the report and remediating.
+- [skills/](skills/): agent skills for auditing, remediating, and snapshot/restore.
 - [spec/checks.example.yaml](spec/checks.example.yaml): the machine-readable
-  ruleset format.
-- [examples/](examples/): a sample report and remediation plan.
+  ruleset format. [spec/snapshot.schema.json](spec/snapshot.schema.json): the
+  snapshot JSON Schema.
+- [examples/](examples/): sample report, snapshot, diff, and restore artifacts.

@@ -176,3 +176,99 @@ checks:
     references:
       - type: docs
         url: https://docs.comfy.org/manager/configuration
+
+  - id: EXP-007
+    title: No Content-Security-Policy on an exposed instance
+    category: exposure
+    severity: medium
+    confidence: medium
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: [install, network]
+      logic: >
+        networked AND not flag_present("--disable-api-nodes")
+        AND not response_header("Content-Security-Policy")
+      note: ComfyUI emits its CSP only when --disable-api-nodes is set; recommend it or inject CSP at the proxy.
+    references:
+      - type: source
+        url: https://raw.githubusercontent.com/comfyanonymous/ComfyUI/master/server.py
+
+  - id: HOST-010
+    title: ComfyUI-Manager config on the legacy web-reachable path
+    category: host
+    severity: high
+    confidence: high
+    remediation:
+      class: upgrade
+      gate: review-required
+    detector:
+      collector: [manager]
+      logic: config_path_is_legacy == true   # user/default/ComfyUI-Manager/ (pre-__manager migration)
+      cross_ref: [PATCH-003]
+    references:
+      - type: advisory
+        id: CVE-2025-67303
+        url: https://xlab.tencent.com/en/2026/01/06/xlab-26-001/
+
+  # ---- DRIFT family (emitted by `comfyharden diff`) ----
+
+  - id: DRIFT-001
+    title: Custom node file changed but git commit unchanged (tamper)
+    category: drift
+    severity: critical
+    confidence: high
+    remediation:
+      class: quarantine
+      gate: review-required
+    detector:
+      collector: [node]
+      inputs: [baseline_snapshot, current]
+      logic: >
+        node.tree_hash != baseline.node.tree_hash
+        AND node.commit == baseline.node.commit
+      note: Deterministic content should hash identically for a given commit; a mismatch is out-of-band modification.
+    references:
+      - type: doc
+        url: docs/SNAPSHOT.md
+
+  - id: DRIFT-008
+    title: ComfyUI-Manager security downgraded since baseline
+    category: drift
+    severity: high
+    confidence: high
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: [manager]
+      inputs: [baseline_snapshot, current]
+      logic: >
+        security_level_lowered(baseline, current) OR
+        flag_flipped_true(baseline, current, "allow_pip_install") OR
+        flag_flipped_true(baseline, current, "allow_git_url_install") OR
+        manager_ui_reenabled(baseline, current)
+    references:
+      - type: docs
+        url: https://docs.comfy.org/manager/configuration
+
+  - id: DRIFT-009
+    title: Exposure regression since baseline
+    category: drift
+    severity: high
+    confidence: high
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: [install, network]
+      inputs: [baseline_snapshot, current]
+      logic: >
+        listen_widened_to_nonloopback(baseline, current) OR
+        cors_header_added(baseline, current) OR
+        tls_removed(baseline, current) OR
+        disable_flag_dropped(baseline, current, ["--disable-api-nodes", "--disable-metadata", "--disable-all-custom-nodes"])
+    references:
+      - type: doc
+        url: docs/CHECKS.md

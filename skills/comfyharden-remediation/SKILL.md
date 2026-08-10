@@ -19,6 +19,15 @@ under the operator's supervision and the gates in the report.
 If you only have one of `report.json` or `FIXES.md`, use it. They carry the same
 findings; `report.json` is machine-precise, `FIXES.md` is ordered for action.
 
+## Before you start: snapshot for rollback
+
+Take a baseline before your first change, so a fix that breaks the instance is
+recoverable: `comfyharden snapshot <path> --out ./baseline` (read-only). If a
+change breaks something, roll back with
+`comfyharden restore ./baseline/snapshot.json --target <path>` and confirm with
+`comfyharden diff --against ./baseline/snapshot.json <path>`. The
+[comfyharden-restore](../comfyharden-restore/SKILL.md) skill covers this in full.
+
 ## How to read a finding
 
 Each finding in `report.json` has:

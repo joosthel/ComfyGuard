@@ -13,6 +13,9 @@ knows what to do.
 - **[comfyharden-remediation](comfyharden-remediation/SKILL.md)**: read a report
   (`report.json` and `FIXES.md`) and fix the findings safely, under the report's
   gates, then verify. This is the core skill.
+- **[comfyharden-restore](comfyharden-restore/SKILL.md)**: snapshot before making
+  changes, detect drift or tampering with `diff`, and roll back to a known-good
+  snapshot if a fix breaks the instance.
 
 ## Using them
 

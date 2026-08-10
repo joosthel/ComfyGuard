@@ -39,15 +39,27 @@ An instance meets the baseline when all of these hold:
 
 ## The workflow
 
-1. **Read the report.** Load `report.json` (the source of truth) and `FIXES.md`
+1. **Snapshot first.** Before changing anything, run
+   `comfyharden snapshot <path> --out ./baseline` to capture a known-good rollback
+   point. This is read-only. See the
+   [comfyharden-restore](skills/comfyharden-restore/SKILL.md) skill.
+2. **Read the report.** Load `report.json` (the source of truth) and `FIXES.md`
    (the ordered, gated plan). Do not re-derive findings yourself; act on the ones
    ComfyHarden found.
-2. **Work the plan in order.** Contain first (quarantine known-malicious nodes and
+3. **Work the plan in order.** Contain first (quarantine known-malicious nodes and
    models), then configuration, then patches, then secrets.
-3. **One change at a time.** Make a change, then run `comfyharden verify` and
+4. **One change at a time.** Make a change, then run `comfyharden verify` and
    confirm the finding cleared by its fingerprint before moving on.
-4. **Verify at the end.** The task is done when the addressed findings clear and
+5. **Roll back if a change breaks the instance.** Use
+   `comfyharden restore ./baseline/snapshot.json --target <path>` and confirm with
+   `comfyharden diff --against ./baseline/snapshot.json <path>` (an empty diff
+   means you are back to the baseline).
+6. **Verify at the end.** The task is done when the addressed findings clear and
    nothing regressed.
+
+`restore --apply` is the one ComfyHarden command that changes an instance, and it
+is gated like any other change: confirm with the operator, and it never deletes
+(it quarantines).
 
 ## Do
 
@@ -66,8 +78,9 @@ An instance meets the baseline when all of these hold:
 - Do not execute a flagged node or load a flagged model to "check" it.
 - Do not rotate, move, or print a live secret. Flag it for the credential owner.
 - Do not restart or redeploy a production service on your own.
-- Do not ask ComfyHarden to change the instance. It cannot; it only reads and
-  reports.
+- Do not run `comfyharden restore --apply` without operator confirmation. It is
+  the one command that changes the instance; the dry-run (no `--apply`) is safe
+  and only writes a plan. Every other ComfyHarden command only reads and reports.
 
 ## Gates you must honor
 

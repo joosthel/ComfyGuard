@@ -42,14 +42,16 @@ collector is enabled).
 |---|---|---|---|
 | EXP-001 | Bind address is non-loopback: bare `--listen` (binds all interfaces) or `--listen <public/LAN IP>`. | Critical when also reachable and unauthenticated, else High | config |
 | EXP-002 | No authenticating layer in front: an unauthenticated `GET /system_stats` returns 200 with no auth challenge and no known auth proxy signature. | Critical | config |
-| EXP-003 | Permissive CORS: `--enable-cors-header` set, especially the bare `*` form, observable as `Access-Control-Allow-Origin: *`. Disables ComfyUI's own Origin/CSRF check. | High | config |
+| EXP-003 | CORS downgrade: `--enable-cors-header` set (especially the bare `*` form, observable as `Access-Control-Allow-Origin: *`). This does not just permit CORS, it *replaces* ComfyUI's default origin-only CSRF middleware with a permissive one that also sends `Access-Control-Allow-Credentials: true`, removing the built-in anti-CSRF/anti-DNS-rebinding guard. | High | config |
 | EXP-004 | TLS absent on a non-loopback listener: plain HTTP, no `--tls-keyfile`/`--tls-certfile` and no TLS-terminating proxy. Credentials and API keys travel in clear text. | High | config |
 | EXP-005 | Dangerous combination: `--enable-cors-header *` together with a non-loopback `--listen`. Any website the operator's browser visits can script the instance. | Critical | config |
 | EXP-006 | Default exposure fingerprint: ComfyUI answering on `:8188` on a public interface (the signature actively scanned by the 2026 botnets). Hardening and awareness. | Medium | config |
+| EXP-007 | No Content-Security-Policy on an exposed instance: ComfyUI emits its CSP header only when `--disable-api-nodes` is set. On a networked server that does not need cloud API nodes, recommend `--disable-api-nodes` (which also blocks outbound calls) so a CSP is present, or inject a CSP at the proxy. | Low to Medium | config |
 
-References: ComfyUI `cli_args.py` and `server.py` (origin middleware, CSP);
-SECURITY.md; Censys/The Hacker News GHOST campaign; Snyk and UpGuard exposure
-studies.
+References: ComfyUI `cli_args.py` and `server.py` (the origin-only vs CORS
+middleware, and `create_block_external_middleware` which gates the CSP on
+`--disable-api-nodes`); SECURITY.md; Censys/The Hacker News GHOST campaign; Snyk
+and UpGuard exposure studies.
 
 ---
 
@@ -98,7 +100,7 @@ source-level fallback where version strings are ambiguous.
 
 | ID | Detects and how | Severity | Fix |
 |---|---|---|---|
-| PATCH-001 | Core below the July 2026 fixes (path traversal in `LoadImage` and model-preview; stored XSS in `/view` and `/userdata`). CVE-2026-56670/56672/56673, GHSA-pj59-g5vv-74q4. | High | upgrade |
+| PATCH-001 | Core below 0.28.0, which shipped the path-traversal fixes (`LoadImage`, model-preview) and stored-XSS fixes (`/view`, `/userdata`): CVE-2026-56670/56672/56673, GHSA-pj59-g5vv-74q4. This is the single highest-value version check; "core >= 0.28.0, ideally latest (0.31.x)" also pairs with a positive stay-current recommendation. | High | upgrade |
 | PATCH-002 | Core vulnerable to `LoadTrainingDataset` pickle RCE, CVE-2026-68771, unauthenticated 9.8. Detect by version/commit and node presence. | Critical | upgrade |
 | PATCH-003 | ComfyUI-Manager below 3.38 (with core below 0.3.76): config-exposure RCE, CVE-2025-67303. | High | upgrade |
 | PATCH-004 | ComfyUI-Manager below 3.39.2 or 4.0.x below 4.0.5: CRLF config injection, CVE-2026-22777. | High | upgrade |
@@ -230,13 +232,53 @@ local or agent access, not a remote probe.
 | HOST-004 | Broad host bind-mounts (`/`, a home directory) beyond the ComfyUI data directories, widening the blast radius of any node RCE. | High | config |
 | HOST-005 | `extra_model_paths.yaml` or a directory override points at a shared, group-writable, or network-mounted path. Includes the symlink-escape risk class. | Medium to High | manual |
 | HOST-006 | `custom_nodes`, model, or user directories are group- or world-writable, allowing a lower-privileged user to plant code that loads at startup. | Medium | config |
-| HOST-007 | Manager configured unsafely for a networked instance: `security_level` weak or normal-, or `allow_pip_install`/`allow_git_url_install` set to true. | High | config |
+| HOST-007 | Manager configured unsafely for a networked instance: `security_level` weak or normal-, or `allow_pip_install`/`allow_git_url_install` set to true. Also recommend `--disable-manager-ui` on an exposed server (keeps scheduled tasks, removes the mutating UI and endpoints). | High | config |
 | HOST-008 | GPU access granted via `--privileged` instead of the scoped NVIDIA Container Toolkit device mechanism. Overlaps HOST-002. | Medium | config |
 | HOST-009 | No outbound egress restriction (no default-deny), so a compromised node can freely exfiltrate or fetch payloads. Configuration and awareness. | Medium | manual |
+| HOST-010 | ComfyUI-Manager config on the legacy `user/default/ComfyUI-Manager/` path (pre-`__manager` migration, Manager below 3.38 or core below the System User Protection API): the config is reachable through the core web API and can be tampered with remotely. Cross-references PATCH-003. Fed by the snapshot's `manager_config.config_path_is_legacy`. | High | upgrade |
 
 References: SECURITY.md and community hardening guides; Snyk hosted-platform
-findings; ComfyUI-Manager security-level and install-flag semantics;
+findings; ComfyUI-Manager security-level, install-flag, and `__manager` migration
+semantics; the `--disable-manager-ui`, `--disable-all-custom-nodes`,
+`--whitelist-custom-nodes`, and `--disable-metadata` core flags;
 `extra_model_paths.yaml.example`.
+
+**Recommendation checks (enable what ComfyUI already provides).** Beyond the
+findings above, an audit surfaces positive recommendations for kiosk, multi-tenant,
+or locked-down deployments: enable `--disable-all-custom-nodes` with a
+`--whitelist-custom-nodes` allowlist where the node set is fixed; enable
+`--disable-metadata` where output images should not carry prompts or workflows;
+prefer nodes from verified Registry publishers (a provenance signal, per the
+Registry Standards and `comfy node validate`). These reflect features ComfyUI
+already ships, so ComfyHarden recommends enabling them rather than flagging a bug.
+
+---
+
+## DRIFT: state change and tamper detection
+
+Emitted by `comfyharden diff` when it compares two snapshots, or a snapshot
+against the live instance. DRIFT findings use the same finding schema, grade, and
+outputs as every other check (see [SNAPSHOT.md](SNAPSHOT.md) and
+[REPORTING.md](REPORTING.md)). Two sub-classes: security indicators (tamper and
+compromise) and stability drift (what changed since it last worked).
+
+| ID | Detects and how | Severity | Fix |
+|---|---|---|---|
+| DRIFT-001 | A custom node's source file changed on disk but its git commit is unchanged. Deterministic content should hash identically for a given commit, so this is a tamper indicator, not an update. | Critical to High | quarantine |
+| DRIFT-002 | A custom node appeared that was absent in the baseline. The new node is routed through the NODE static-analysis and PATCH known-malicious checks automatically. | High | manual to quarantine |
+| DRIFT-003 | A custom node present in the baseline was removed. | Low to Medium | context |
+| DRIFT-004 | A node's git commit changed (an update); escalate if the new commit is unknown or unverified. | Medium | context to upgrade |
+| DRIFT-005 | A model file's sha256 changed for the same path (substitution). Requires `--hash-models`; otherwise a same-size swap is not detected. | High | quarantine |
+| DRIFT-006 | A new model file appeared; escalate if it is a pickle format (cross-references MODEL-002). | Low to Medium | context |
+| DRIFT-007 | A dependency version changed; escalate to Critical if the new pin matches a known-bad IOC (cross-references DEP-005, PATCH-007). | Medium to Critical | upgrade |
+| DRIFT-008 | Manager config downgrade: `security_level` lowered, `allow_pip_install`/`allow_git_url_install` flipped to true, or the Manager UI re-enabled since the baseline. | High | config |
+| DRIFT-009 | Exposure regression: `--listen` widened to non-loopback, `--enable-cors-header` added, TLS flags removed, or a `--disable-api-nodes`/`--disable-metadata`/`--disable-all-custom-nodes` dropped. | High to Critical | config |
+| DRIFT-010 | Host regression: process or container user changed to root, `--privileged` added, or the Docker socket mounted since the baseline. | High to Critical | config |
+| DRIFT-011 | Core ComfyUI version or commit changed; cross-references PATCH to report if it moved into or out of a vulnerable range. | Medium | context to upgrade |
+| DRIFT-012 | Baseline integrity: the snapshot fingerprint or signature will not validate, or its `schema_version` mismatches, so the diff cannot be trusted. | Info to Medium | manual |
+
+References: [SNAPSHOT.md](SNAPSHOT.md); the existing NODE, MODEL, DEP, PATCH, EXP,
+and HOST families that DRIFT cross-references rather than duplicates.
 
 ---
 
@@ -254,6 +296,8 @@ to concrete, testable checks:
 - Manager RCE history: PATCH plus HOST-007 plus API-003.
 - Secret and data leakage (UpGuard leaks, Comfy Deploy keys): SEC plus FLOW.
 - Host and container weakness that turns a node bug into host compromise: HOST.
+- Post-baseline compromise and instability (tampered node, planted node, config
+  downgrade, exposure regression): DRIFT, via `comfyharden diff`.
 
 The ruleset is versioned. New CVEs and IOCs are added as advisory and incident
 data, so the catalog grows without changing the engine.
