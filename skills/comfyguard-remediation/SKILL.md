@@ -1,12 +1,12 @@
 ---
-name: comfyharden-remediation
-description: Use when fixing a ComfyUI instance from a ComfyHarden security report. Triggers when a report.json or FIXES.md from ComfyHarden is present, or the user asks to remediate, harden, or fix ComfyHarden findings. Teaches an agent to read the report, apply fixes under gates, and verify them. ComfyHarden is read-only and never changes the instance; the agent does the fixing.
+name: comfyguard-remediation
+description: Use when fixing a ComfyUI instance from a ComfyGuard security report. Triggers when a report.json or FIXES.md from ComfyGuard is present, or the user asks to remediate, harden, or fix ComfyGuard findings. Teaches an agent to read the report, apply fixes under gates, and verify them. ComfyGuard is read-only and never changes the instance; the agent does the fixing.
 ---
 
-# Remediating a ComfyUI instance from a ComfyHarden report
+# Remediating a ComfyUI instance from a ComfyGuard report
 
-ComfyHarden assessed a ComfyUI deployment and wrote a report. Your job is to fix
-the findings safely. ComfyHarden changed nothing; every change is yours to make,
+ComfyGuard assessed a ComfyUI deployment and wrote a report. Your job is to fix
+the findings safely. ComfyGuard changed nothing; every change is yours to make,
 under the operator's supervision and the gates in the report.
 
 ## Inputs
@@ -22,11 +22,11 @@ findings; `report.json` is machine-precise, `FIXES.md` is ordered for action.
 ## Before you start: snapshot for rollback
 
 Take a baseline before your first change, so a fix that breaks the instance is
-recoverable: `comfyharden snapshot <path> --out ./baseline` (read-only). If a
+recoverable: `comfyguard snapshot <path> --out ./baseline` (read-only). If a
 change breaks something, roll back with
-`comfyharden restore ./baseline/snapshot.json --target <path>` and confirm with
-`comfyharden diff --against ./baseline/snapshot.json <path>`. The
-[comfyharden-restore](../comfyharden-restore/SKILL.md) skill covers this in full.
+`comfyguard restore ./baseline/snapshot.json --target <path>` and confirm with
+`comfyguard diff --against ./baseline/snapshot.json <path>`. The
+[comfyguard-restore](../comfyguard-restore/SKILL.md) skill covers this in full.
 
 ## How to read a finding
 
@@ -85,7 +85,7 @@ either misses the biggest risk or breaks the instance:
 
 After each change (or a small batch of related ones):
 
-1. Run `comfyharden verify <path> --against <the prior report.json>`.
+1. Run `comfyguard verify <path> --against <the prior report.json>`.
 2. Confirm the finding you addressed cleared, matched by `fingerprint`.
 3. Confirm no new findings appeared.
 

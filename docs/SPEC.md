@@ -1,6 +1,6 @@
-# ComfyHarden: specification
+# ComfyGuard: specification
 
-ComfyHarden is a read-only security suite for ComfyUI. It evaluates an existing
+ComfyGuard is a read-only security suite for ComfyUI. It evaluates an existing
 installation, writes a report, and can capture and compare full-state snapshots.
 The report is the basis a developer's coding agent works from to fix the problems,
 guided by the agent skills that ship with the tool. It is built for instances that
@@ -17,8 +17,8 @@ This is the consolidated specification. The deeper architecture is in
 output and remediation contract in [REPORTING.md](REPORTING.md), the agent skills
 in `skills/`, and the evidence base in [RESEARCH.md](RESEARCH.md).
 
-Name: ComfyHarden. Command-line tool: `comfyharden`. Repository:
-`comfyui-hardened`.
+Name: ComfyGuard. Command-line tool: `comfyguard`. Repository:
+`ComfyGuard`.
 
 ## 1. Why this exists
 
@@ -33,13 +33,13 @@ who can reach its URL. The moment an instance is put on a network, the platform
 hands the security boundary to the operator. Comfy.org has done meaningful work
 on the parts it owns: the Registry scans and bans obfuscated nodes, ComfyUI-Manager
 has security levels, and recent releases moved sensitive data behind protected
-paths. ComfyHarden covers the other half: the security of a specific deployment,
+paths. ComfyGuard covers the other half: the security of a specific deployment,
 which only the operator can see and configure. It complements that work; it does
 not replace it.
 
 ## 2. What it is: a read-only advisor
 
-ComfyHarden reads, evaluates, and writes reports and snapshots. It does not touch
+ComfyGuard reads, evaluates, and writes reports and snapshots. It does not touch
 the instance except through the one opt-in `restore --apply` command. The actual
 fixing is done by a separate coding agent that the operator runs, using the skills
 in `skills/`. This split is deliberate: the tool that assesses a production server
@@ -51,7 +51,7 @@ and `verify` assess and confirm; `snapshot` and `diff` capture and compare state
 `restore` rolls back (read-only by default, mutating only with `--apply`). The
 snapshot, diff, and restore design is specified in [SNAPSHOT.md](SNAPSHOT.md).
 
-### `comfyharden audit`
+### `comfyguard audit`
 
 Read-only. Safe to run on a production instance. It evaluates five core layers
 plus two extensions and writes the report:
@@ -76,14 +76,14 @@ Output: `report.json`, `report.md` (human, leads with an A-to-F grade),
 `report.sarif`, and `FIXES.md` (the agent remediation plan). These are the only
 files it writes.
 
-### `comfyharden verify`
+### `comfyguard verify`
 
 Read-only. Re-assesses the installation and diffs the result against a prior
 report by finding fingerprint, so the operator and the coding agent can confirm
 that fixes actually landed and nothing regressed. It writes only a diff report.
 This closes the loop: audit, then the agent fixes, then verify.
 
-### `comfyharden snapshot`
+### `comfyguard snapshot`
 
 Read-only. Captures the full instance state (core version and commit, custom nodes
 with git commits, resolved pip freeze, launch flags, Manager config and security
@@ -94,7 +94,7 @@ restore-compatible with `comfy node restore-snapshot`. Model hashing is
 metadata-only by default (`--hash-models` opts into sha256). Full schema in
 [SNAPSHOT.md](SNAPSHOT.md).
 
-### `comfyharden diff`
+### `comfyguard diff`
 
 Read-only. Compares two snapshots, or a snapshot against the live instance, and
 reports what changed as DRIFT findings (see [CHECKS.md](CHECKS.md)). It answers
@@ -103,20 +103,20 @@ downgrade, an exposure regression: a compromise indicator) and "what changed sin
 it last worked" (a version or dependency change: a stability signal). DRIFT
 findings feed the same grade and outputs as every other check.
 
-### `comfyharden restore`
+### `comfyguard restore`
 
 Read-only by default: it writes a rollback plan (`RESTORE.md`), a runnable
 `restore.sh`, and a Manager-format snapshot, and changes nothing. The script
 delegates node and pip rollback to `comfy node restore-snapshot` and compensates
 for that path's two gaps (it re-checks out the core commit and reinstalls
-torch/nvidia). With `--apply`, ComfyHarden performs the rollback itself; this is
+torch/nvidia). With `--apply`, ComfyGuard performs the rollback itself; this is
 the single command that mutates an instance, and it is guarded (snapshot first,
 never delete, quarantine instead, refuse a serving instance without `--force`,
 honor gates, audit-log every action). Full model in [SNAPSHOT.md](SNAPSHOT.md).
 
 ## 3. How fixing happens: the report plus agent skills
 
-ComfyHarden produces the plan; a coding agent carries it out. To make that
+ComfyGuard produces the plan; a coding agent carries it out. To make that
 reliable, the tool ships agent skills in `skills/` that teach a coding agent how
 to read the report and act on it safely:
 
@@ -128,7 +128,7 @@ to read the report and act on it safely:
   agent must honor them: apply only `auto` directly, confirm `review-required`
   with the operator, and never apply `human-only` (delete, rotate a credential,
   redeploy).
-- **The loop.** Make one change, run `comfyharden verify`, confirm the finding
+- **The loop.** Make one change, run `comfyguard verify`, confirm the finding
   cleared by fingerprint, then move on.
 
 The standing baseline an agent should enforce is in [AGENTS.md](../AGENTS.md); the
@@ -181,7 +181,7 @@ not as engine rewrites. Full detail in [CONCEPT.md](CONCEPT.md).
 1. **Assess.** `audit` across the core layers, the threat feed, `report.json`,
    `report.md`, and `FIXES.md`, plus the agent skills. Covers most documented
    incident classes on its own.
-2. **Verify, snapshot, and breadth.** `comfyharden verify` with fingerprint
+2. **Verify, snapshot, and breadth.** `comfyguard verify` with fingerprint
    diffing; `snapshot` and `diff` with the DRIFT family (tamper and drift
    detection); SARIF output; the CycloneDX ML-BOM; and the secrets and host
    extensions.
@@ -197,14 +197,14 @@ not as engine rewrites. Full detail in [CONCEPT.md](CONCEPT.md).
 - One command tells an operator whether an instance is safe to expose, with a
   clear grade and the reasons, and changes nothing on the instance.
 - A coding agent can read `FIXES.md`, apply the fixes under their gates, and use
-  `comfyharden verify` to prove they worked.
+  `comfyguard verify` to prove they worked.
 - The whole thing runs offline, is safe to run on production, and installs nothing
   into ComfyUI.
 
 ## 9. Non-goals
 
 - It is not a fixer. Assessment changes nothing; a separate agent does the
-  forward fixing. The only change ComfyHarden itself makes is the opt-in
+  forward fixing. The only change ComfyGuard itself makes is the opt-in
   `restore --apply` rollback to a captured snapshot.
 - It is not a runtime firewall, antivirus, or sandbox.
 - It does not replace the Comfy Registry or ComfyUI-Manager; it audits how they

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "ruleset_version": "2026.08.1",
-  "tool": {"name": "comfyharden", "version": "0.1.0"},
+  "tool": {"name": "comfyguard", "version": "0.1.0"},
   "scan": {
     "started_at": "2026-08-08T10:15:00Z",
     "duration_seconds": 41.7,

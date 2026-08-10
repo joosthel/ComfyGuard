@@ -8,7 +8,7 @@ instance is reachable without an authenticating layer (sec-net-001), and a
 known-malicious node is installed (node-mal-001).
 
 This plan is written for an automated coding agent operating under the operator's
-supervision. `comfyharden` did not change anything. Each action states a gate. The
+supervision. `comfyguard` did not change anything. Each action states a gate. The
 agent must honor gates: `auto` may be applied directly, `review-required` needs
 operator confirmation, `human-only` is described but never applied by the agent.
 Nothing here deletes anything or executes a flagged artifact.
@@ -90,7 +90,7 @@ in-process node. The agent prepares the config change but does not rotate.
 ## Phase 6: Verify
 
 **act-012 (auto) Re-scan and diff.**
-Re-run `comfyharden` and diff against `sample-report.json` by fingerprint. Confirm
+Re-run `comfyguard` and diff against `sample-report.json` by fingerprint. Confirm
 sec-net-001, sec-net-002, node-mal-001, model-001, mgr-cve-001, core-cve-001,
 node-code-002, host-001, host-002, and dep-001 have cleared, and that no new
 findings appeared. The plan is not complete until this passes. node-code-001 and

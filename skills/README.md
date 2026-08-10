@@ -1,19 +1,19 @@
 # Agent skills
 
-These skills teach a coding agent how to work with ComfyHarden. ComfyHarden is
+These skills teach a coding agent how to work with ComfyGuard. ComfyGuard is
 read-only: it assesses a ComfyUI instance and writes a report, and never changes
 anything itself. The fixing is done by a coding agent, and these skills are how it
 knows what to do.
 
 ## The skills
 
-- **[comfyharden-audit](comfyharden-audit/SKILL.md)**: run an audit and interpret
+- **[comfyguard-audit](comfyguard-audit/SKILL.md)**: run an audit and interpret
   the A-to-F grade. Decide whether an instance is safe to expose and what to do
   next.
-- **[comfyharden-remediation](comfyharden-remediation/SKILL.md)**: read a report
+- **[comfyguard-remediation](comfyguard-remediation/SKILL.md)**: read a report
   (`report.json` and `FIXES.md`) and fix the findings safely, under the report's
   gates, then verify. This is the core skill.
-- **[comfyharden-restore](comfyharden-restore/SKILL.md)**: snapshot before making
+- **[comfyguard-restore](comfyguard-restore/SKILL.md)**: snapshot before making
   changes, detect drift or tampering with `diff`, and roll back to a known-good
   snapshot if a fix breaks the instance.
 

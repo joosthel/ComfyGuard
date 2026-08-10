@@ -1,11 +1,11 @@
 ---
-name: comfyharden-restore
-description: Use when snapshotting a ComfyUI instance before making changes, or rolling one back to a known-good ComfyHarden snapshot after a fix broke it or a compromise is suspected. Triggers on ComfyHarden snapshot.json / RESTORE.md / restore.sh, or requests to snapshot, roll back, or restore a ComfyUI instance. snapshot and diff are read-only; restore only mutates with --apply.
+name: comfyguard-restore
+description: Use when snapshotting a ComfyUI instance before making changes, or rolling one back to a known-good ComfyGuard snapshot after a fix broke it or a compromise is suspected. Triggers on ComfyGuard snapshot.json / RESTORE.md / restore.sh, or requests to snapshot, roll back, or restore a ComfyUI instance. snapshot and diff are read-only; restore only mutates with --apply.
 ---
 
 # Snapshotting and rolling back a ComfyUI instance
 
-ComfyHarden can capture an instance's full state and roll it back. Use this to
+ComfyGuard can capture an instance's full state and roll it back. Use this to
 create a safety net before you change anything, and to recover if a change breaks
 the instance or a `diff` shows tampering.
 
@@ -14,7 +14,7 @@ the instance or a `diff` shows tampering.
 Always capture a baseline before the first change:
 
 ```
-comfyharden snapshot <path> --out ./baseline
+comfyguard snapshot <path> --out ./baseline
 ```
 
 This is read-only. Keep the resulting `baseline/snapshot.json`; it is your rollback
@@ -24,7 +24,7 @@ point. If you are also remediating from an audit, snapshot first, then work thro
 ## Detecting drift and tamper: diff
 
 ```
-comfyharden diff --against ./baseline/snapshot.json <path>
+comfyguard diff --against ./baseline/snapshot.json <path>
 ```
 
 Read-only. It reports what changed since the baseline as DRIFT findings. Treat a
@@ -37,7 +37,7 @@ operator before doing anything else.
 `restore` is dry-run by default and writes only a plan and a script:
 
 ```
-comfyharden restore ./baseline/snapshot.json --target <path>
+comfyguard restore ./baseline/snapshot.json --target <path>
 ```
 
 This produces `RESTORE.md`, `restore.sh`, and a Manager-format snapshot. Nothing
@@ -45,10 +45,10 @@ is changed. You then either run `restore.sh` step by step under the gates, or, i
 the operator authorizes it, run the one mutating form:
 
 ```
-comfyharden restore ./baseline/snapshot.json --target <path> --apply
+comfyguard restore ./baseline/snapshot.json --target <path> --apply
 ```
 
-`restore --apply` is the only ComfyHarden command that changes the instance.
+`restore --apply` is the only ComfyGuard command that changes the instance.
 
 ## Rules for restore
 
@@ -68,7 +68,7 @@ comfyharden restore ./baseline/snapshot.json --target <path> --apply
 After restoring, run:
 
 ```
-comfyharden diff --against ./baseline/snapshot.json <path>
+comfyguard diff --against ./baseline/snapshot.json <path>
 ```
 
 An empty diff proves the instance matches the baseline again, including the

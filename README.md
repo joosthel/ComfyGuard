@@ -1,8 +1,8 @@
-# ComfyHarden
+# ComfyGuard
 
 Read-only security evaluation for ComfyUI, with a report your coding agent can act on.
 
-ComfyHarden evaluates an existing ComfyUI installation, writes a report, and can
+ComfyGuard evaluates an existing ComfyUI installation, writes a report, and can
 capture and compare full-state snapshots. The report is the basis a developer's
 coding agent works from to fix the problems, guided by the agent skills that ship
 with the tool. It is built for instances that run on a company or local network,
@@ -15,7 +15,7 @@ rollback to a captured snapshot.
 This repository currently holds the concept, specification, threat research,
 check catalog, reporting contract, snapshot format, agent skills, and example
 outputs. It is the design the implementation is built against. Tool name:
-ComfyHarden. Command: `comfyharden`. Repository: `comfyui-hardened`.
+ComfyGuard. Command: `comfyguard`. Repository: `ComfyGuard`.
 
 ## Why this exists
 
@@ -29,7 +29,7 @@ ComfyUI is designed to run locally and, by its own security policy, trusts anyon
 who can reach its URL. Once an instance is on a network, securing it is the
 operator's job. Comfy.org has done real work on the parts it owns: the Registry
 scans and bans obfuscated custom nodes, ComfyUI-Manager has security levels, and
-recent releases moved sensitive data behind protected paths. ComfyHarden covers
+recent releases moved sensitive data behind protected paths. ComfyGuard covers
 the other half, the security of a specific deployment, which only the operator can
 see and configure. It complements that work rather than replacing it.
 
@@ -40,24 +40,24 @@ disclosed and patched. The evidence base is in [docs/RESEARCH.md](docs/RESEARCH.
 
 ## How it works
 
-ComfyHarden assesses; a coding agent fixes. Five commands, four of them strictly
+ComfyGuard assesses; a coding agent fixes. Five commands, four of them strictly
 read-only:
 
-- **`comfyharden audit <path>`** Read-only scan across core and versions, exposure
+- **`comfyguard audit <path>`** Read-only scan across core and versions, exposure
   and access, custom nodes, dependencies, and model files, plus secrets and host
   checks. Produces ranked findings, a single A-to-F grade, and a remediation plan.
   Safe to run on a live instance.
-- **`comfyharden verify <path>`** Re-assesses and diffs against a prior report by
+- **`comfyguard verify <path>`** Re-assesses and diffs against a prior report by
   fingerprint, so you can confirm the agent's fixes landed and nothing regressed.
-- **`comfyharden snapshot <path>`** Captures the full instance state (versions,
+- **`comfyguard snapshot <path>`** Captures the full instance state (versions,
   node commits, pip freeze, launch flags, Manager config, model inventory, and
   per-node file hashes) into one timestamped JSON, restore-compatible with
   ComfyUI-Manager.
-- **`comfyharden diff <a> <b>`** Compares two snapshots, or a snapshot against
+- **`comfyguard diff <a> <b>`** Compares two snapshots, or a snapshot against
   live, and reports what changed: a tampered or planted node, a config downgrade,
   or an exposure regression (a compromise indicator), and version changes (the
   "what broke since it last worked" signal).
-- **`comfyharden restore <snapshot>`** Rolls back to a snapshot. Read-only by
+- **`comfyguard restore <snapshot>`** Rolls back to a snapshot. Read-only by
   default (it writes a plan and a script); the one command that mutates the
   instance, only with `--apply`, and even then it never deletes.
 
@@ -89,8 +89,8 @@ The full catalog is in [docs/CHECKS.md](docs/CHECKS.md).
 
 ## Eight best practices for a secure ComfyUI instance
 
-These are the baseline ComfyHarden measures against. They matter most once an
-instance is reachable beyond a single local user. ComfyHarden reports where you
+These are the baseline ComfyGuard measures against. They matter most once an
+instance is reachable beyond a single local user. ComfyGuard reports where you
 stand against them; a coding agent applies the fixes.
 
 1. **Keep ComfyUI on localhost, and reach it through a proxy.** Do not expose it
@@ -138,7 +138,7 @@ agent-ready output. Deterministic and explainable. The reasoning is in
   dependencies, and models.
 - `report.md`: a human summary that leads with the grade.
 - `report.sarif`: SARIF 2.1.0, so node findings show up in GitHub code scanning.
-- `FIXES.md`: an ordered, gated remediation plan for a coding agent. ComfyHarden
+- `FIXES.md`: an ordered, gated remediation plan for a coding agent. ComfyGuard
   writes it; it never applies it.
 - `snapshot.json`: a full state manifest (from `snapshot`), restore-compatible
   with ComfyUI-Manager.
@@ -154,22 +154,22 @@ worked examples in [examples/](examples/).
 
 ```
 # Assess an installation (read-only, safe anywhere you have access):
-comfyharden audit /opt/comfyui --out ./report
+comfyguard audit /opt/comfyui --out ./report
 
 # Capture a known-good baseline before anyone touches it:
-comfyharden snapshot /opt/comfyui --out ./baseline
+comfyguard snapshot /opt/comfyui --out ./baseline
 
 # Hand the report to a coding agent (Claude Code or similar) with the skills
 # in skills/, then let it work through FIXES.md under the gates.
 
 # Re-assess and diff to verify the agent's fixes:
-comfyharden verify /opt/comfyui --against ./report/report.json
+comfyguard verify /opt/comfyui --against ./report/report.json
 
 # Later, check for drift or tampering against the baseline:
-comfyharden diff --against ./baseline/snapshot.json /opt/comfyui
+comfyguard diff --against ./baseline/snapshot.json /opt/comfyui
 
 # If a change broke the instance, roll back (dry-run; add --apply to perform it):
-comfyharden restore ./baseline/snapshot.json --target /opt/comfyui
+comfyguard restore ./baseline/snapshot.json --target /opt/comfyui
 ```
 
 ## Roadmap
@@ -189,7 +189,7 @@ comfyharden restore ./baseline/snapshot.json --target /opt/comfyui
 A clean grade means no known-bad patterns, versions, or configurations were
 found. It does not prove a deployment is safe. Static analysis can be evaded by
 novel or obfuscated payloads, which is why the design is layered and why
-high-assurance environments should pair ComfyHarden with containment: a
+high-assurance environments should pair ComfyGuard with containment: a
 least-privilege user, egress filtering, and sandboxing.
 
 ## Documentation

@@ -1,18 +1,18 @@
 ---
-name: comfyharden-audit
-description: Use when running a ComfyHarden security audit of a ComfyUI instance and interpreting the result. Triggers when the user asks to scan, audit, or check the security of a ComfyUI deployment, or to read a ComfyHarden grade. ComfyHarden is read-only; it writes only a report. For fixing the findings, use the comfyharden-remediation skill.
+name: comfyguard-audit
+description: Use when running a ComfyGuard security audit of a ComfyUI instance and interpreting the result. Triggers when the user asks to scan, audit, or check the security of a ComfyUI deployment, or to read a ComfyGuard grade. ComfyGuard is read-only; it writes only a report. For fixing the findings, use the comfyguard-remediation skill.
 ---
 
-# Running a ComfyHarden audit and reading the result
+# Running a ComfyGuard audit and reading the result
 
-ComfyHarden is a read-only security scanner for ComfyUI. It never changes the
+ComfyGuard is a read-only security scanner for ComfyUI. It never changes the
 instance; it writes a report. Use this skill to run an audit and interpret it.
-To act on the findings, switch to the comfyharden-remediation skill.
+To act on the findings, switch to the comfyguard-remediation skill.
 
 ## Run the audit
 
 ```
-comfyharden audit <path-to-comfyui-install> --out ./report
+comfyguard audit <path-to-comfyui-install> --out ./report
 ```
 
 - Safe to run on a live instance; it only reads and writes the report to `--out`.
@@ -39,12 +39,12 @@ is safe.
 
 ## Decide the next step
 
-- Capture a baseline with `comfyharden snapshot <path> --out ./baseline` before
-  any change, so the fixes are reversible (see the comfyharden-restore skill).
+- Capture a baseline with `comfyguard snapshot <path> --out ./baseline` before
+  any change, so the fixes are reversible (see the comfyguard-restore skill).
 - If the grade is C or worse, hand `report.json` and `FIXES.md` to a coding agent
-  running the comfyharden-remediation skill, and have the operator supervise.
+  running the comfyguard-remediation skill, and have the operator supervise.
 - Lead your summary to the operator with the grade and the one or two findings
   that matter most, not a wall of every finding.
-- After fixes are applied, run `comfyharden verify <path> --against <report.json>`
-  to confirm they landed, and `comfyharden diff --against ./baseline/snapshot.json
+- After fixes are applied, run `comfyguard verify <path> --against <report.json>`
+  to confirm they landed, and `comfyguard diff --against ./baseline/snapshot.json
   <path>` to confirm nothing else drifted.

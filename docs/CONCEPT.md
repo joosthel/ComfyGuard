@@ -1,6 +1,6 @@
-# Concept and architecture: ComfyHarden
+# Concept and architecture: ComfyGuard
 
-`ComfyHarden` is a read-only security suite for ComfyUI with five commands:
+`ComfyGuard` is a read-only security suite for ComfyUI with five commands:
 `audit` (assess and write a report), `verify` (re-assess and diff against a prior
 report to confirm fixes landed), `snapshot` (capture full instance state),
 `diff` (compare two states and report drift/tamper), and `restore` (roll back to a
@@ -52,7 +52,7 @@ pieces exist in adjacent ecosystems (Python SAST, dependency scanners, pickle
 scanners, secret scanners), but nothing assembles them with knowledge of
 ComfyUI's node and workflow model, checks live posture, matches versions to the
 ComfyUI and Manager CVEs, and emits standard machine-readable output. That is the
-gap `ComfyHarden` fills.
+gap `ComfyGuard` fills.
 
 ## 2. What it is and is not
 
@@ -65,7 +65,7 @@ Assessment (`audit`, `verify`, `snapshot`, `diff`) never edits the deployment,
 never runs node code, and never deserializes a model file; it writes only its own
 reports and snapshots. Forward fixing is the job of a separate coding agent that
 reads the report under the guidance of the shipped agent skills. The one action
-ComfyHarden itself can take on an instance is `restore --apply`, an opt-in,
+ComfyGuard itself can take on an instance is `restore --apply`, an opt-in,
 guarded rollback to a captured snapshot, which never deletes (it quarantines). It
 does not replace ComfyUI-Manager or the Comfy Registry; it audits how they are
 configured and what they installed. The remediation contract for the consuming
@@ -133,7 +133,7 @@ The pipeline is: discover the target, collect facts, run checks against those
 facts, correlate and de-duplicate, score, and render.
 
 ```
-                          ComfyHarden
+                          ComfyGuard
                               |
         +---------------------+----------------------+
         |                     |                      |
@@ -302,14 +302,14 @@ risky actions are gated:
 4. **Handle secrets.** Move secrets out of the shared process environment into
    mounted files or a secrets manager, and flag credentials that need rotation
    by their owner.
-5. **Verify.** Run `comfyharden verify` to re-assess and diff against the prior
+5. **Verify.** Run `comfyguard verify` to re-assess and diff against the prior
    report by finding fingerprint, so the agent (and the operator) can confirm each
    finding is actually resolved and nothing regressed. `verify` is read-only too;
    it only writes a diff report.
 
 Each action in the plan carries an `auto` / `review-required` / `human-only`
 gate, a precise target (file and location, or config key), the proposed change,
-and a rollback note. The gates constrain the consuming agent, not ComfyHarden,
+and a rollback note. The gates constrain the consuming agent, not ComfyGuard,
 which applies nothing. Destructive actions (deleting a model or node, rotating a
 live credential, redeploying) are never `auto`. The agent skills in `skills/`
 teach an agent to honor these gates. The full contract is in
@@ -363,7 +363,7 @@ self-assessment instrument, and the design keeps it on that side of the line.
   safe to run." The report says this plainly.
 - Obfuscation and novel payloads can evade signature and pattern rules. The
   layered design and the allowlist-based model inspection reduce this, but do not
-  eliminate it. High-assurance environments should combine `ComfyHarden` with
+  eliminate it. High-assurance environments should combine `ComfyGuard` with
   containment (least-privilege user, egress filtering, sandboxing).
 - Version-to-CVE matching is only as current as the bundled data. The tool
   reports the data's age and the ambiguity around ComfyUI version numbering

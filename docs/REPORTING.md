@@ -1,6 +1,6 @@
 # Reporting contract
 
-`ComfyHarden` emits a set of artifacts. This document defines each, the finding
+`ComfyGuard` emits a set of artifacts. This document defines each, the finding
 schema they share, the deployment risk grade, and the agent remediation plan with
 its guardrails. Concrete examples are in `examples/`.
 
@@ -14,11 +14,11 @@ The core artifacts from an `audit`:
    security tab.
 3. **Agent remediation plan** (`FIXES.md`, plus the same actions inside
    `report.json`): an ordered, gated set of actions written for an automated
-   coding agent to carry out. ComfyHarden writes it; it never applies it.
+   coding agent to carry out. ComfyGuard writes it; it never applies it.
 4. **Human report** (`report.md` or `.html`): a readable summary that leads with
    the grade and the top findings.
 
-`comfyharden verify` produces a diff-of-findings report that compares a fresh scan
+`comfyguard verify` produces a diff-of-findings report that compares a fresh scan
 against a prior one by finding fingerprint. It is read-only too.
 
 The `snapshot`, `diff`, and `restore` commands add three more artifacts, all
@@ -109,7 +109,7 @@ containers) are emitted with a logical location and a `partialFingerprints` entr
 built from the finding fingerprint, so GitHub deduplicates them correctly across
 runs. The CVSS vector and references travel in the result's `properties` bag.
 
-This means a node repository can run `comfyharden` in CI, upload the SARIF, and
+This means a node repository can run `comfyguard` in CI, upload the SARIF, and
 get node-code findings as inline PR annotations with no bespoke dashboard.
 
 ## 3. Deployment risk grade
@@ -139,7 +139,7 @@ but those never override the worst-finding grade.
 
 The plan is the reason the report is machine-readable. It turns findings into an
 ordered sequence of actions that an automated coding agent can execute under the
-operator's supervision, while ComfyHarden itself stays strictly read-only. The
+operator's supervision, while ComfyGuard itself stays strictly read-only. The
 scanner proposes; the agent, separately and with authorization, acts. This plan
 is written to `FIXES.md` (a Markdown rendering) and carried in `report.json`. The
 agent skills in `skills/` teach a coding agent to read it and honor the gates
@@ -161,7 +161,7 @@ order can either miss the highest risk or break the instance:
    before a possibly-disruptive upgrade.
 4. **Secrets**: relocate secrets out of the shared environment; flag credentials
    for rotation by their owner.
-5. **Verify**: run `comfyharden verify` to diff by fingerprint and confirm each
+5. **Verify**: run `comfyguard verify` to diff by fingerprint and confirm each
    finding is resolved and nothing regressed.
 
 ### 4.2 Action shape

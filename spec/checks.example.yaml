@@ -1,4 +1,4 @@
-# Example ruleset entries for comfyharden.
+# Example ruleset entries for comfyguard.
 #
 # This shows the machine-readable format that the full catalog in docs/CHECKS.md
 # compiles to. Each entry is one check. The engine loads these, runs the named
@@ -212,7 +212,7 @@ checks:
         id: CVE-2025-67303
         url: https://xlab.tencent.com/en/2026/01/06/xlab-26-001/
 
-  # ---- DRIFT family (emitted by `comfyharden diff`) ----
+  # ---- DRIFT family (emitted by `comfyguard diff`) ----
 
   - id: DRIFT-001
     title: Custom node file changed but git commit unchanged (tamper)

@@ -1,7 +1,7 @@
 {
   "schema_version": "diff/1.0",
-  "kind": "comfyharden.diff",
-  "tool": {"name": "comfyharden", "version": "0.1.0"},
+  "kind": "comfyguard.diff",
+  "tool": {"name": "comfyguard", "version": "0.1.0"},
   "ruleset_version": "2026.08.1",
   "created_at": "2026-08-10T09:05:00Z",
   "compared": {
@@ -29,7 +29,7 @@
       "remediation": {"class": "quarantine", "auto_fixable": false, "gate": "review-required",
         "summary": "Quarantine the node, compare against the upstream commit, and treat the host as possibly compromised.",
         "action": "Move custom_nodes/handy-tools aside; diff util.py against the pinned commit; investigate how it changed.",
-        "rollback": "Restore from the clean baseline snapshot via comfyharden restore."},
+        "rollback": "Restore from the clean baseline snapshot via comfyguard restore."},
       "references": [{"type": "doc", "url": "docs/SNAPSHOT.md"}]
     },
     {
@@ -97,7 +97,7 @@
       "remediation": {"class": "context", "auto_fixable": false, "gate": "review-required",
         "summary": "Confirm the core update was intended and smoke-test workflows.",
         "action": "Verify the commit change was expected.",
-        "rollback": "Restore the baseline core commit via comfyharden restore if a workflow regressed."},
+        "rollback": "Restore the baseline core commit via comfyguard restore if a workflow regressed."},
       "references": [{"type": "doc", "url": "docs/SNAPSHOT.md"}]
     }
   ]

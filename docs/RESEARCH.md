@@ -236,7 +236,7 @@ where version data is ambiguous.
 ## 8. Current ComfyUI security posture (August 2026)
 
 Read from the live repositories (core around v0.31.x). This is the baseline
-ComfyHarden aligns to: it recommends enabling what ComfyUI already provides, and
+ComfyGuard aligns to: it recommends enabling what ComfyUI already provides, and
 does not flag as vendor bugs the things ComfyUI has already fixed.
 
 Already implemented in core:
@@ -271,10 +271,10 @@ path (informs HOST-010).
 
 Comfy Registry: publish-time Standards ban `eval`/`exec`, runtime pip install, and
 obfuscation; verified publishers via "Claim My Node"; `comfy node validate` runs
-Ruff security rules. These are provenance signals ComfyHarden recommends preferring.
+Ruff security rules. These are provenance signals ComfyGuard recommends preferring.
 
 Still absent, so they become recommendations rather than assumptions: no built-in
-auth (audit the proxy layer), no custom-node signing (so ComfyHarden's hash-based
+auth (audit the proxy layer), no custom-node signing (so ComfyGuard's hash-based
 tamper detection, DRIFT-001/005, is the integrity signal), and no shipped desktop
 sandbox (reinforces the containment recommendation).
 

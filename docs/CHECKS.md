@@ -1,6 +1,6 @@
 # Check catalog
 
-This is the catalog of security checks `ComfyHarden` runs, grouped by domain. It is
+This is the catalog of security checks `ComfyGuard` runs, grouped by domain. It is
 the human-readable companion to the machine-readable ruleset (format shown in
 `spec/checks.example.yaml`). Every check has a stable ID, a detection method, a
 default severity, and a remediation class that tells an automated agent how (and
@@ -250,13 +250,13 @@ or locked-down deployments: enable `--disable-all-custom-nodes` with a
 `--disable-metadata` where output images should not carry prompts or workflows;
 prefer nodes from verified Registry publishers (a provenance signal, per the
 Registry Standards and `comfy node validate`). These reflect features ComfyUI
-already ships, so ComfyHarden recommends enabling them rather than flagging a bug.
+already ships, so ComfyGuard recommends enabling them rather than flagging a bug.
 
 ---
 
 ## DRIFT: state change and tamper detection
 
-Emitted by `comfyharden diff` when it compares two snapshots, or a snapshot
+Emitted by `comfyguard diff` when it compares two snapshots, or a snapshot
 against the live instance. DRIFT findings use the same finding schema, grade, and
 outputs as every other check (see [SNAPSHOT.md](SNAPSHOT.md) and
 [REPORTING.md](REPORTING.md)). Two sub-classes: security indicators (tamper and
@@ -297,7 +297,7 @@ to concrete, testable checks:
 - Secret and data leakage (UpGuard leaks, Comfy Deploy keys): SEC plus FLOW.
 - Host and container weakness that turns a node bug into host compromise: HOST.
 - Post-baseline compromise and instability (tampered node, planted node, config
-  downgrade, exposure regression): DRIFT, via `comfyharden diff`.
+  downgrade, exposure regression): DRIFT, via `comfyguard diff`.
 
 The ruleset is versioned. New CVEs and IOCs are added as advisory and incident
 data, so the catalog grows without changing the engine.

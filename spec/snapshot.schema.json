@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/joosthel/comfyui-hardened/spec/snapshot.schema.json",
-  "title": "ComfyHarden snapshot",
+  "$id": "https://github.com/joosthel/ComfyGuard/spec/snapshot.schema.json",
+  "title": "ComfyGuard snapshot",
   "description": "A full state manifest of a ComfyUI instance. Supersets the ComfyUI-Manager snapshot format by embedding a byte-compatible copy as manager_snapshot.",
   "type": "object",
   "required": ["schema_version", "kind", "created_at", "manager_snapshot", "core"],
   "additionalProperties": true,
   "properties": {
     "schema_version": {"type": "string", "const": "snapshot/1.0"},
-    "kind": {"type": "string", "const": "comfyharden.snapshot"},
+    "kind": {"type": "string", "const": "comfyguard.snapshot"},
     "tool": {
       "type": "object",
       "properties": {"name": {"type": "string"}, "version": {"type": "string"}}

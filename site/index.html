@@ -328,7 +328,7 @@
 
 <header class="topbar">
   <div class="wrap topbar-inner">
-    <div class="brand"><span class="dot"></span> ComfyHarden <span class="tag">read-only</span></div>
+    <div class="brand"><span class="dot"></span> ComfyGuard <span class="tag">read-only</span></div>
     <button class="toggle" id="themeToggle" aria-label="Switch color theme">
       <span id="themeLabel">Dark</span>
     </button>
@@ -341,13 +341,13 @@
     <div class="wrap hero-grid">
       <div>
         <span class="status-pill"><span class="pulse"></span> Read-only · concept for review</span>
-        <h1>Comfy<span class="accent">Harden</span></h1>
+        <h1>Comfy<span class="accent">Guard</span></h1>
         <p class="lead">Read-only security evaluation for ComfyUI in production.</p>
-        <p class="muted" style="max-width:52ch;">Generative tools now run on strong hardware, on company and studio networks. That is where they earn their keep, and where they need real security. ComfyHarden evaluates an existing instance and shows you exactly where it stands. The assessment changes nothing. The report it writes is what your coding agent uses to fix the problems.</p>
+        <p class="muted" style="max-width:52ch;">Generative tools now run on strong hardware, on company and studio networks. That is where they earn their keep, and where they need real security. ComfyGuard evaluates an existing instance and shows you exactly where it stands. The assessment changes nothing. The report it writes is what your coding agent uses to fix the problems.</p>
         <div class="loop" aria-label="The workflow">
-          <div class="step"><span class="role">Assess</span><span class="cmd">comfyharden audit</span><span class="what">Read-only scan and a grade</span></div>
+          <div class="step"><span class="role">Assess</span><span class="cmd">comfyguard audit</span><span class="what">Read-only scan and a grade</span></div>
           <div class="step"><span class="role">Remediate</span><span class="cmd">your coding agent</span><span class="what">Fixes the report, guided by skills</span></div>
-          <div class="step"><span class="role">Verify</span><span class="cmd">comfyharden verify</span><span class="what">Confirm the fixes landed</span></div>
+          <div class="step"><span class="role">Verify</span><span class="cmd">comfyguard verify</span><span class="what">Confirm the fixes landed</span></div>
         </div>
       </div>
       <aside class="posture" aria-label="Example security grade">
@@ -370,7 +370,7 @@
       <div class="eyebrow">Why now</div>
       <h2>Production changes the rules</h2>
       <p class="lead">ComfyUI is built to run locally and, by design, trusts anyone who can reach it. That is the right default on a laptop. On a network it means the operator owns security.</p>
-      <p class="muted">Comfy.org secures what it controls well: the registry scans and bans obfuscated nodes, and ComfyUI-Manager has security levels. ComfyHarden covers the other half, the deployment itself, which only you can see and configure. None of this is a knock on ComfyUI. It is simply what production readiness looks like for any high-powered tool on capable hardware.</p>
+      <p class="muted">Comfy.org secures what it controls well: the registry scans and bans obfuscated nodes, and ComfyUI-Manager has security levels. ComfyGuard covers the other half, the deployment itself, which only you can see and configure. None of this is a knock on ComfyUI. It is simply what production readiness looks like for any high-powered tool on capable hardware.</p>
       <div class="stats">
         <div class="stat">
           <div class="n crit">1,000+</div>
@@ -396,10 +396,10 @@
     <div class="wrap reveal">
       <div class="eyebrow">The workflow</div>
       <h2>Assess, remediate, verify</h2>
-      <p class="lead">ComfyHarden's assessment is read-only. Your coding agent does the fixing in between audit and verify, guided by the skills that ship with the tool.</p>
+      <p class="lead">ComfyGuard's assessment is read-only. Your coding agent does the fixing in between audit and verify, guided by the skills that ship with the tool.</p>
       <div class="grid g3" style="margin-top:26px;">
         <div class="card pillar">
-          <span class="badge">comfyharden audit</span>
+          <span class="badge">comfyguard audit</span>
           <h3>Assess</h3>
           <p>A read-only scan across exposure, custom nodes, dependencies, model files, and host settings. It changes nothing and is safe to run on a live instance.</p>
           <div class="outcome">Output: a single <b>A–F grade</b> and the report</div>
@@ -407,11 +407,11 @@
         <div class="card pillar">
           <span class="who">your coding agent</span>
           <h3>Remediate</h3>
-          <p>Claude Code or any coding agent reads the report and applies the fixes under clear gates, guided by the shipped skills. ComfyHarden never touches the instance.</p>
+          <p>Claude Code or any coding agent reads the report and applies the fixes under clear gates, guided by the shipped skills. ComfyGuard never touches the instance.</p>
           <div class="outcome">Output: a <b>hardened instance</b>, changed by the agent</div>
         </div>
         <div class="card pillar">
-          <span class="badge">comfyharden verify</span>
+          <span class="badge">comfyguard verify</span>
           <h3>Verify</h3>
           <p>Re-scans and diffs against the earlier report by fingerprint, so you can confirm each fix landed and nothing regressed. Read-only too.</p>
           <div class="outcome">Output: <b>confirmation</b> the findings cleared</div>
@@ -463,19 +463,19 @@
       <p class="lead">Capture a known-good state before anyone touches the instance. Later, see exactly what changed, and roll back if a change broke it or a scan shows tampering. The snapshot format supersets ComfyUI-Manager's own, so it stays restore-compatible.</p>
       <div class="grid g3" style="margin-top:26px;">
         <div class="card pillar">
-          <span class="badge">comfyharden snapshot</span>
+          <span class="badge">comfyguard snapshot</span>
           <h3>Capture</h3>
           <p>One timestamped JSON of the full state: versions and commits, node hashes, dependencies, launch flags, and Manager config. Read-only.</p>
           <div class="outcome">Output: a <b>baseline</b> you can compare and restore to</div>
         </div>
         <div class="card pillar">
-          <span class="badge">comfyharden diff</span>
+          <span class="badge">comfyguard diff</span>
           <h3>Detect drift</h3>
           <p>Compare two states, or a baseline against live. A node file changed without its commit changing, a planted node, a config downgrade: the shape of a compromise. Also catches "what changed since it last worked."</p>
           <div class="outcome">Output: <b>DRIFT findings</b>, graded like any other</div>
         </div>
         <div class="card pillar">
-          <span class="badge">comfyharden restore</span>
+          <span class="badge">comfyguard restore</span>
           <h3>Roll back</h3>
           <p>Writes a rollback plan and script by default, changing nothing. The one command that can mutate the instance, only with <b>--apply</b>, and even then it never deletes, only quarantines.</p>
           <div class="outcome">Output: a <b>reversible rollback</b> to the baseline</div>
@@ -489,7 +489,7 @@
     <div class="wrap reveal">
       <div class="eyebrow">Baseline</div>
       <h2>Eight best practices</h2>
-      <p class="lead">The standard ComfyHarden measures against, and what a coding agent works from the report to apply. These matter most once an instance is reachable beyond a single local user.</p>
+      <p class="lead">The standard ComfyGuard measures against, and what a coding agent works from the report to apply. These matter most once an instance is reachable beyond a single local user.</p>
       <div class="bp" style="margin-top:22px;">
         <div class="item"><span class="num">01</span><div><h4>Keep it on localhost</h4><p>Do not expose it directly. Reach it through an authenticating, TLS-terminating proxy or a VPN.</p></div></div>
         <div class="item"><span class="num">02</span><div><h4>Require authentication</h4><p>Core has none, so it lives in the proxy or network. Multi-user mode is storage, not access control.</p></div></div>
@@ -558,7 +558,7 @@
         <div class="decision">
           <div class="q">Naming</div>
           <h3>What it is called</h3>
-          <div class="opts"><span class="opt rec">ComfyHarden</span><span class="opt">comfyguard</span><span class="opt">comfyscan</span></div>
+          <div class="opts"><span class="opt rec">ComfyGuard</span><span class="opt">ComfyHarden</span><span class="opt">comfyscan</span></div>
         </div>
         <div class="decision">
           <div class="q">Posture</div>
@@ -582,7 +582,7 @@
   <footer>
     <div class="wrap foot">
       <div>
-        <div class="big">Comfy<span style="color:var(--accent);">Harden</span></div>
+        <div class="big">Comfy<span style="color:var(--accent);">Guard</span></div>
         <div class="note">Read-only security evaluation for ComfyUI.</div>
       </div>
       <div class="note">Concept for review · August 2026</div>

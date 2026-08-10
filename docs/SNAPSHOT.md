@@ -1,6 +1,6 @@
 # Snapshot, diff, and restore
 
-ComfyHarden can capture the full state of a ComfyUI instance, compare two states
+ComfyGuard can capture the full state of a ComfyUI instance, compare two states
 to see what changed, and produce a rollback. This is the reversibility layer that
 makes agent-driven fixes safe (snapshot before, roll back if broken) and, through
 `diff`, a tamper and drift detector: an unexpected modification is a compromise
@@ -20,7 +20,7 @@ never change the ComfyUI instance.
 `restore` is the single exception, and only when you pass `--apply`. Without
 `--apply` it is also read-only: it writes a rollback plan and a runnable script,
 and changes nothing. With `--apply` it performs the rollback. That is the only way
-any ComfyHarden command mutates an instance, and it is heavily guarded (see
+any ComfyGuard command mutates an instance, and it is heavily guarded (see
 Restore below).
 
 ## snapshot: capture full state
@@ -32,7 +32,7 @@ Network probe, see [CONCEPT.md](CONCEPT.md) section 4) build a typed fact store;
 only extra collection cost is hashing.
 
 ```
-comfyharden snapshot /opt/comfyui --out ./snap
+comfyguard snapshot /opt/comfyui --out ./snap
 ```
 
 Output is a single timestamped JSON. `audit --emit-snapshot` also drops one during
@@ -42,7 +42,7 @@ a normal scan, so an assessment doubles as a baseline.
 
 ComfyUI-Manager already has a snapshot feature with a five-field JSON (core commit,
 git nodes with commit hashes, registry-node versions, single-file nodes, and a pip
-freeze). ComfyHarden does not reinvent it. It embeds a byte-compatible copy of
+freeze). ComfyGuard does not reinvent it. It embeds a byte-compatible copy of
 that exact object as `manager_snapshot`, so a standalone copy can be restored by
 `comfy node restore-snapshot` unchanged, and wraps it in an envelope that adds
 what Manager omits.
@@ -81,14 +81,14 @@ Manager-format copy is in
 
 `env_allowlist` records variable names and presence, never values, consistent with
 the no-exfiltration principle. Snapshots are written to the output directory you
-choose. ComfyHarden does not write into the ComfyUI tree; the Manager-format copy
+choose. ComfyGuard does not write into the ComfyUI tree; the Manager-format copy
 is placed into `user/__manager/snapshots/` only by `restore --apply`.
 
 ## diff: compare two states
 
 ```
-comfyharden diff old-snapshot.json new-snapshot.json         # offline, two snapshots
-comfyharden diff --against baseline.json /opt/comfyui        # snapshot vs live
+comfyguard diff old-snapshot.json new-snapshot.json         # offline, two snapshots
+comfyguard diff --against baseline.json /opt/comfyui        # snapshot vs live
 ```
 
 `diff` compares each block as added, removed, or changed, and emits findings in a
@@ -116,7 +116,7 @@ same as a known-malicious node.
 ### Default (read-only): a plan and a script
 
 ```
-comfyharden restore snapshot.json --target /opt/comfyui
+comfyguard restore snapshot.json --target /opt/comfyui
 ```
 
 This writes, to the output directory only:
@@ -145,10 +145,10 @@ An example plan and script are in
 ### With `--apply`: the one write path
 
 ```
-comfyharden restore snapshot.json --target /opt/comfyui --apply
+comfyguard restore snapshot.json --target /opt/comfyui --apply
 ```
 
-ComfyHarden performs the rollback itself. This is the only command that mutates an
+ComfyGuard performs the rollback itself. This is the only command that mutates an
 instance, and every guardrail is required:
 
 - It takes a fresh pre-restore snapshot first, as an automatic rollback point.
@@ -162,14 +162,14 @@ instance, and every guardrail is required:
 
 ### Confirming a rollback
 
-After a restore, `comfyharden diff --against snapshot.json <target>` should return
+After a restore, `comfyguard diff --against snapshot.json <target>` should return
 an empty diff, which proves the instance matches the baseline again, including the
-core-commit and pip compensations. `comfyharden verify` against the pre-change
+core-commit and pip compensations. `comfyguard verify` against the pre-change
 report confirms the security posture.
 
 ## The agent workflow
 
-The [comfyharden-restore](../skills/comfyharden-restore/SKILL.md) skill teaches a
+The [comfyguard-restore](../skills/comfyguard-restore/SKILL.md) skill teaches a
 coding agent to take a snapshot before the first change, roll back through the
 plan if a fix breaks the instance, and confirm with `diff`. Combined with the
 remediation skill, this is what makes agent fixes safe: there is always a captured
