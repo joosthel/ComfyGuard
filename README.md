@@ -2,6 +2,10 @@
 
 Read-only security evaluation for ComfyUI, with a report your coding agent can act on.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-0057ff.svg)](LICENSE)
+![Status: design and spec](https://img.shields.io/badge/status-design%20%26%20spec-9aa4b2.svg)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-1f9d55.svg)](CONTRIBUTING.md)
+
 ComfyGuard evaluates an existing ComfyUI installation, writes a report, and can
 capture and compare full-state snapshots. The report is the basis a developer's
 coding agent works from to fix the problems, guided by the agent skills that ship
@@ -12,10 +16,11 @@ Assessment is read-only: `audit`, `verify`, `snapshot`, and `diff` change nothin
 on the instance. The one exception is `restore --apply`, an opt-in, guarded
 rollback to a captured snapshot.
 
-This repository currently holds the concept, specification, threat research,
-check catalog, reporting contract, snapshot format, agent skills, and example
-outputs. It is the design the implementation is built against. Tool name:
-ComfyGuard. Command: `comfyguard`. Repository: `ComfyGuard`.
+**Status:** design and specification stage. This repository holds the concept,
+specification, threat research, check catalog, reporting contract, snapshot
+format, agent skills, and worked examples. There is no installable release yet;
+the Python implementation follows this spec. The command-line tool will be
+`comfyguard`.
 
 ## Why this exists
 
@@ -210,3 +215,37 @@ least-privilege user, egress filtering, and sandboxing.
   ruleset format. [spec/snapshot.schema.json](spec/snapshot.schema.json): the
   snapshot JSON Schema.
 - [examples/](examples/): sample report, snapshot, diff, and restore artifacts.
+
+## Responsible use
+
+ComfyGuard is a defensive self-assessment tool. Use it only against ComfyUI
+deployments you operate or are authorized to test. The static and host checks run
+on a local installation; the network probe is opt-in, defaults to localhost, and
+requires you to assert authorization for any non-loopback target. It does not
+exploit, and it is read-only apart from the opt-in `restore --apply`.
+
+## Contributing
+
+Contributions are welcome, especially new checks and threat-feed entries. Please
+read [CONTRIBUTING.md](CONTRIBUTING.md) first; it lists the principles a change
+must preserve (read-only, never execute untrusted code, offline-first). By
+contributing you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+To report a vulnerability in ComfyGuard itself, follow [SECURITY.md](SECURITY.md).
+Do not open a public issue. Vulnerabilities in ComfyUI or ComfyUI-Manager should
+go to their own maintainers.
+
+## Acknowledgements
+
+ComfyGuard builds on the work of the ComfyUI project and ComfyUI-Manager (whose
+snapshot format it stays compatible with), and on established open-source security
+tools it is designed to wrap, including Bandit and Semgrep, pip-audit and OSV,
+modelscan and Fickling, and the SARIF and CycloneDX standards. The threat research
+credits the vendors and researchers cited in
+[docs/RESEARCH.md](docs/RESEARCH.md).
+
+## License
+
+Released under the [MIT License](LICENSE).

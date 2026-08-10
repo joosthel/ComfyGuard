@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability in ComfyGuard
+    url: https://github.com/joosthel/ComfyGuard/security/advisories/new
+    about: Do not file security vulnerabilities as public issues. Report them privately here.
+  - name: Question or discussion
+    url: https://github.com/joosthel/ComfyGuard/discussions
+    about: For questions and open-ended discussion, please use Discussions.
