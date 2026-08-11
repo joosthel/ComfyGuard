@@ -284,7 +284,62 @@ Sources: `SECURITY.md`, `comfy/cli_args.py`, `server.py`, `app/user_manager.py`,
 `glob/security_check.py`, the v3.38 migration doc); docs.comfy.org/registry/standards;
 Comfy-Org/comfy-cli (`comfy node validate`).
 
-## 9. Primary sources
+## 9. Deployment and production security surface (August 2026)
+
+Verified against current source. This is the evidence base for the deployment
+families in [CHECKS.md](CHECKS.md) (DOS, GW, WEB, DATA, IOC, OPS, and API-008).
+
+- **WebSocket `/ws` is unauthenticated.** The handler mints or accepts a
+  client-supplied `clientId` with no credential check, and broadcasts execution
+  status, the running node, progress, and preview images to any connected client.
+  The origin-only middleware is a browser CSRF and DNS-rebinding guard, not
+  authentication: a non-browser client (curl, websocat) sends no Origin and
+  connects freely. Supplying another session's `clientId` drops that session's
+  socket. The reverse-proxy gotcha is real: a `location /ws` block that does not
+  re-declare `auth_basic` bypasses the auth on `location /`. (`server.py`;
+  discussion #2786.)
+- **No rate limiting or resource caps.** Core has no throttling, per-client
+  quotas, or queue caps; `--max-upload-size` (default 100MB) is the only body
+  limit; history is memory-capped at 10000 and lost on restart; there is no
+  VRAM/memory quota, so one workflow can OOM the host. SECURITY.md treats
+  resource exhaustion as out of scope, so it is the operator's control.
+- **Custom-node browser JS runs unsandboxed.** `load_custom_node` registers each
+  node's `WEB_DIRECTORY`; `/extensions` serves the list and the frontend loads
+  every file same-origin, with access to the API. A malicious or vulnerable node's
+  JS can XSS the UI, read tokens, and exfiltrate. Snyk demonstrated this; hosted
+  platforms neutralize it by returning an empty extension list. (`nodes.py`,
+  `server.py`; Snyk Labs.)
+- **Almost no security response headers.** No HSTS, X-Frame-Options, or
+  Referrer-Policy; CSP only with `--disable-api-nodes` (and even then it allows
+  `unsafe-inline`/`unsafe-eval`); `X-Content-Type-Options: nosniff` only on
+  `/view`. The default aiohttp `Server` banner is not stripped. The proxy must add
+  the rest. (`server.py`.)
+- **Output data is unbounded and unprotected.** `output`, `input`, and `temp`
+  grow with no cleanup or quota; `/view` and `/internal/files/{output,input,temp}`
+  serve them unauthenticated; `SaveImage` embeds the full prompt and workflow in
+  PNG metadata unless `--disable-metadata` is set. Relevant for PII and GDPR on
+  company deployments. (`nodes.py`, `internal_routes.py`.)
+- **No official container-hardening baseline.** Guidance is community-driven.
+  Standard controls apply: non-root UID, `no-new-privileges`, dropped capabilities,
+  seccomp/AppArmor, read-only root filesystem, digest-pinned images, and CPU,
+  memory, and GPU limits. Never expose the Docker socket or TCP `2375`.
+- **Concrete compromise indicators from the 2026 botnets.** GHOST drops an
+  LD_PRELOAD rootkit (`/etc/ld.so.preload`, `libpam_cache.so`), `chattr +i` miner
+  binaries, hidden dotfiles in `/var/tmp`, `/dev/shm`, `/var/spool/cron`,
+  masqueraded process names (`khugepaged_*`, `.cpu`, `.gpu`), a backdoor node
+  (`comfyui_perf_monitor`), a poisoned auto-run workflow
+  (`user/default/workflows/default.json`), C2 over a set of known hosts, and
+  Kryptex mining pools; it moves laterally via Docker `2375` and Redis `6379`.
+  NadMesh is Go-based, Shodan-driven, and targets cloud keys and Kubernetes
+  tokens. ComfyUI-Manager's startup denylist catches only the older
+  LLMVISION/Ultralytics/litellm indicators. (Censys; The Hacker News; Manager
+  `security_check.py`.)
+- **Weak observability.** Core logs are in-memory (default capacity 300),
+  unauthenticated via `/internal/logs`, lost on restart, and actively cleared by
+  attackers; there is no audit trail. Detection must come from the proxy, network
+  egress monitoring, and host EDR. (`app/logger.py`.)
+
+## 10. Primary sources
 
 Official ComfyUI:
 

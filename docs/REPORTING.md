@@ -53,6 +53,8 @@ present when applicable.
   "severity": "high",
   "cvss": {"version": "4.0", "score": 8.5, "vector": "CVSS:4.0/AV:N/AC:L/..."},
   "confidence": "high",
+  "urgency": "urgent",
+  "decision_owner": "agent",
   "location": {
     "kind": "file",
     "path": "custom_nodes/example-node/nodes.py",
@@ -90,6 +92,13 @@ Key design points:
 - **`severity` and `confidence` are separate.** Severity is the impact if real;
   confidence is how sure the scanner is that it is real. A consumer can filter on
   either. The deployment grade (section 3) weights them together.
+- **`urgency` and `decision_owner` triage for a deployed instance.** `urgency` is
+  `blocker`, `urgent`, `standard`, or `hardening`; the `blocker` findings are the
+  pre-exposure gate (see [CHECKS.md](CHECKS.md)), so a report can answer "is this
+  safe to expose yet" directly. `decision_owner` is `agent` (a coding agent can
+  draft the fix) or `human` (an operator call the agent must not make on its own,
+  such as accepting an availability trade-off, taking a possibly-compromised
+  instance offline, or a data-retention choice).
 - **`location.kind`** is one of `file`, `endpoint`, `config`, `process`,
   `container`, `dependency`, or `model`, so a finding can point at a line of node
   code, a CORS header, a `config.ini` key, or a running container equally well.

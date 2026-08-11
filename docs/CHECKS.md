@@ -30,6 +30,36 @@ The single most important framing check is EXP-001 combined with AUTH-001:
 security policy, exposure itself is the operator's risk, so the scanner treats it
 as a top-tier finding on its own, without waiting for a specific CVE to match.
 
+## Urgency, the pre-exposure gate, and human decisions
+
+Severity says how bad a finding is if real. For a deployed instance, an operator
+also needs to know how urgent it is and whether resolving it is a machine fix or a
+human call. Every check carries two extra attributes:
+
+- **Urgency:** `blocker` (must be resolved before an instance is exposed to a
+  network or put into production, or fixed immediately if already exposed),
+  `urgent` (address promptly on any deployed instance), `standard`, or `hardening`
+  (defense in depth). The report can filter to just the blockers.
+- **Decision owner:** most findings an agent can draft a fix for. Some are
+  inherently a person's call and are marked **human-decision**: whether an
+  instance should be reachable at all, accepting an availability or compatibility
+  trade-off, taking a possibly-compromised instance offline, rotating a
+  credential, deleting data, or a data-retention and compliance choice. For these
+  the agent presents the trade-off and stops.
+
+**The pre-exposure gate** is the set of `blocker` checks. An instance should not be
+exposed to a company network or the internet until they pass. As a shorthand: no
+reachable instance without authentication (EXP, AUTH, API-003, API-008), no
+known-malicious node or active-compromise indicator (PATCH-007, IOC), no
+unauthenticated-RCE core or Manager version (PATCH-002, PATCH-005), no container
+escape surface (HOST-002, HOST-003, HOST-014), and no missing rollback point
+(snapshot a baseline first). The full gate list is in the coverage summary.
+
+This urgency model is why the tool aims to be comprehensive: on a production
+deployment you want the whole surface checked, then the results triaged by what
+blocks exposure, what is urgent, and what is a human decision, rather than a flat
+list.
+
 ---
 
 ## EXP: exposure and network configuration
@@ -65,6 +95,8 @@ misconceptions and weak add-ons.
 | AUTH-001 | No access control on a networked instance: core provides none, and no reverse-proxy auth (`WWW-Authenticate`, Cloudflare Access, oauth2-proxy, Authelia) or auth node is detected. | Critical when networked | config |
 | AUTH-002 | `--multi-user` present and possibly mistaken for authentication. It is storage partitioning only, with no password or server-side identity. | Info to Medium | manual |
 | AUTH-003 | Weak add-on auth: a single-shared-password node (for example ComfyUI-Login) as the only control, or an auth node without TLS in front. Note the auth node itself runs as trusted in-process code. | Medium | config |
+| AUTH-004 | Default, blank, or shared credentials on the fronting auth: a proxy Basic Auth with a default or empty password, an auth node left at its default password, or one credential shared by everyone (no per-user identity, no revocation). | High | config |
+| AUTH-005 | No multi-factor or SSO on an internet-exposed instance. For a company deployment reachable beyond a private network or VPN, single-factor is a human-decision risk to accept or fix (SSO/MFA at the proxy). | Medium | manual |
 
 References: SECURITY.md; ComfyUI issues #987, #10653, discussion #5165; community
 auth nodes (ComfyUI-Login, comfyui-basic-auth, ComfyUI-Sentinel).
@@ -85,10 +117,11 @@ against an authorized target, or inferred from version plus configuration.
 | API-005 | `/history` may return Comfy.org API keys: source-level observation that `/history` does not strip `SENSITIVE_EXTRA_DATA_KEYS` the way `/queue` does. Confidence Low, verify by probing the response. | Medium (Low confidence) | manual |
 | API-006 | System and inventory disclosure via `/system_stats`, `/features`, `/models`, `/object_info`, `/extensions`: reveals OS, versions, installed models and node classes. | Low | config |
 | API-007 | Vulnerable node classes present and reachable: `/object_info` (or the node inventory) contains classes tied to known RCE, such as `LoadTrainingDataset`, `ACE_ExpressionEval`, `BuildColorRangeHSVAdvanced`, or raw shell-exec nodes. | High | quarantine |
+| API-008 | `/ws` WebSocket reachable unauthenticated. It broadcasts execution status, the running node, progress, and preview images to any connected client. The origin-only middleware is a browser-CSRF guard, not authentication: a non-browser client (curl, websocat) sends no Origin and connects freely. A client can also supply another session's `clientId` and knock its socket off. | High when networked | config |
 
-References: `server.py`, `app/user_manager.py`,
-`api_server/routes/internal/internal_routes.py`; execution.py
-`SENSITIVE_EXTRA_DATA_KEYS`.
+References: `server.py` (including the `/ws` handler and `clientId` handling),
+`app/user_manager.py`, `api_server/routes/internal/internal_routes.py`;
+execution.py `SENSITIVE_EXTRA_DATA_KEYS`.
 
 ---
 
@@ -136,6 +169,7 @@ a dangerous capability co-occurs with a suspicious indicator in the same unit.
 | NODE-012 | Bundled binaries or scripts (`.exe`, `.dll`, `.so`, `.sh`, `.ps1`, `.bat`, `.scr`), or payloads staged in auxiliary folders (`scripts/`, `bin/`, data blobs). Upscaler-4K buried-payload signature. | Medium to High | manual |
 | NODE-013 | Sandbox-escape dynamic dispatch: `getattr` on `os`/builtins with an assembled name, or `__builtins__` introspection used to bypass an `eval` filter. Bmad-Nodes bypass. | High | manual |
 | NODE-014 | YARA family match against stealer, miner, or loader rules on node files. | High to Critical per rule | quarantine |
+| NODE-015 | Node installed from an insecure or non-canonical source: an `http://` (not https) git remote, a fork rather than the Registry or canonical repo, a typosquatted repo name, or a raw git-URL install rather than a verified Registry publisher. | Medium | manual |
 
 References: Comfy Registry Standards (eval/exec, runtime pip, obfuscation bans);
 Bandit blacklist and Ruff "S" rules; GuardDog capability-plus-indicator model;
@@ -236,6 +270,10 @@ local or agent access, not a remote probe.
 | HOST-008 | GPU access granted via `--privileged` instead of the scoped NVIDIA Container Toolkit device mechanism. Overlaps HOST-002. | Medium | config |
 | HOST-009 | No outbound egress restriction (no default-deny), so a compromised node can freely exfiltrate or fetch payloads. Configuration and awareness. | Medium | manual |
 | HOST-010 | ComfyUI-Manager config on the legacy `user/default/ComfyUI-Manager/` path (pre-`__manager` migration, Manager below 3.38 or core below the System User Protection API): the config is reachable through the core web API and can be tampered with remotely. Cross-references PATCH-003. Fed by the snapshot's `manager_config.config_path_is_legacy`. | High | upgrade |
+| HOST-011 | Weak container isolation: dangerous Linux capabilities kept (for example `CAP_SYS_ADMIN`) instead of dropped, no seccomp or AppArmor profile, no `no-new-privileges`, or a writable root filesystem. Each turns a node-level RCE into a stronger foothold. | High | config |
+| HOST-012 | Base image not pinned: an image tag like `latest` with no digest, so the running image can change silently, and no image scanning or provenance. | Medium | config |
+| HOST-013 | No CPU, memory, or GPU resource limits (cgroup or Kubernetes). A single workflow can exhaust the host, and an abused instance can mine at full GPU. Overlaps DOS-003. | Medium to High | config |
+| HOST-014 | A lateral-movement service reachable from the ComfyUI host or network: the Docker daemon on TCP `2375`, or a Redis or other backend on its default port with no auth. These are the exact escape and persistence vectors used by the 2026 botnets. | Critical | config |
 
 References: SECURITY.md and community hardening guides; Snyk hosted-platform
 findings; ComfyUI-Manager security-level, install-flag, and `__manager` migration
@@ -251,6 +289,119 @@ or locked-down deployments: enable `--disable-all-custom-nodes` with a
 prefer nodes from verified Registry publishers (a provenance signal, per the
 Registry Standards and `comfy node validate`). These reflect features ComfyUI
 already ships, so ComfyGuard recommends enabling them rather than flagging a bug.
+
+---
+
+## DOS: availability and resource abuse
+
+Production availability is a real security property and often a human decision
+(what to spend on capacity, what to rate-limit). ComfyUI core has no rate limiting.
+
+| ID | Detects and how | Severity | Fix |
+|---|---|---|---|
+| DOS-001 | No rate limiting or throttling in front of `/prompt`. The pending queue is unbounded, so a client can flood it. On a networked instance with no rate-limiting proxy, this is a trivial denial of service. | High when networked | config |
+| DOS-002 | Upload and storage caps missing or too high: `--max-upload-size` (default 100MB) is the only body limit, with no per-client or total-storage cap, so large or repeated uploads fill `input` and `temp`. | Medium | config |
+| DOS-003 | No CPU, memory, or GPU limits on the process or container: one workflow can exhaust the host, and an abused instance can mine at full GPU. Overlaps HOST-013. | Medium to High | config |
+| DOS-004 | Unauthenticated disruptive endpoints: repeated `POST /free` thrashes model load/unload, and `POST /interrupt` or `POST /queue` (clear) can cancel or wipe another user's work. | Medium when networked | config |
+
+References: `server.py` (no throttle middleware); `--max-upload-size`, `--reserve-vram`
+in `cli_args.py`; SECURITY.md (resource exhaustion is out of scope for the vendor,
+so it is the operator's control).
+
+---
+
+## GW: gateway and reverse-proxy hardening
+
+When a proxy fronts the instance (the recommended pattern), audit the proxy.
+ComfyUI core sends almost no security headers, so these are the proxy's job.
+
+| ID | Detects and how | Severity | Fix |
+|---|---|---|---|
+| GW-001 | Missing security response headers: HSTS, X-Frame-Options (or `frame-ancestors`), X-Content-Type-Options, Referrer-Policy. Core sends none, and its CSP ships only with `--disable-api-nodes` (EXP-007), so the proxy must add them. | Medium | config |
+| GW-002 | Weak TLS at the edge: a protocol below TLS 1.2, weak or legacy ciphers, or an expired, self-signed, or hostname-mismatched certificate. | High to Medium | config |
+| GW-003 | WebSocket not behind the proxy auth: the classic gotcha where `auth_basic` is on `location /` but the separate `/ws` block does not re-declare it, so `/ws` (API-008) bypasses authentication. | High | config |
+| GW-004 | Server or version banner disclosed: the proxy passes ComfyUI/aiohttp's default `Server` header rather than stripping it. | Low | config |
+| GW-005 | Path allowlisting instead of whole-app auth: the proxy exposes only some paths but leaves `/prompt`, `/internal/*`, `/userdata/*`, `/ws`, or Manager endpoints reachable. Front the entire app with auth; do not allowlist paths. | High | config |
+
+References: `server.py` (middleware and headers); the nginx WebSocket-auth pattern
+(ComfyUI discussion #2786); SECURITY.md (operator responsibility).
+
+---
+
+## WEB: browser-side node extensions
+
+Custom nodes ship JavaScript via `WEB_DIRECTORY`, served at `/extensions` and
+loaded into the ComfyUI UI, same-origin, with no sandbox or review. It runs in the
+browser of anyone using the instance. Analyzed statically alongside NODE.
+
+| ID | Detects and how | Severity | Fix |
+|---|---|---|---|
+| WEB-001 | A node's browser JS calls an external host: `fetch`, `XMLHttpRequest`, `WebSocket`, or an injected script/image to a non-self origin, especially a hardcoded IP, a webhook, or a paste or anonymous-file host. Exfiltration surface in the operator's browser. | High | manual |
+| WEB-002 | Node JS uses a DOM-injection or dynamic-eval sink on non-constant input: `eval`, `new Function`, `innerHTML`/`outerHTML`, `document.write`, or `insertAdjacentHTML`. First-party-origin XSS. | Medium to High | manual |
+| WEB-003 | Node JS reads browser credentials (cookies, `localStorage`/`sessionStorage`, or a Comfy.org token) and pairs it with an outbound call (co-occurs with WEB-001). | High | manual |
+| WEB-004 | Many untrusted extensions load with no CSP (EXP-007) on a networked or multi-user instance. Recommend disabling custom frontend JS (as hosted platforms do by returning an empty extension list) or gating it. | Medium | manual |
+
+References: `nodes.py` (`load_custom_node`, `WEB_DIRECTORY`, `EXTENSION_WEB_DIRS`),
+`/extensions`; Snyk's hosted-platform `getExtensions` override; docs.comfy.org
+custom-nodes JavaScript overview.
+
+---
+
+## DATA: data protection, retention, and privacy
+
+Relevant for company deployments and data-protection regimes such as GDPR. Several
+of these are human decisions, not agent fixes.
+
+| ID | Detects and how | Severity | Fix |
+|---|---|---|---|
+| DATA-001 | Output, input, and temp directories grow unbounded with no retention or cleanup. Both a disk-fill denial of service and an accumulation of potentially personal data. | Medium | manual |
+| DATA-002 | Generated outputs and uploads exposed without access control on a networked or multi-tenant instance: `/view` and `/internal/files/{output,input,temp}` serve them unauthenticated, so personal or sensitive images are readable by anyone who can reach the instance. | High when networked | config |
+| DATA-003 | Output images embed the full prompt and workflow as PNG metadata by default (`--disable-metadata` not set). Sharing an image leaks prompts, node graphs, file paths, and any secret in them. Overlaps FLOW-004. | Low to Medium | config |
+| DATA-004 | Input, temp, or output files are group- or world-readable, or on shared storage, so one tenant or a lower-privileged user can read another's data. | Medium | config |
+| DATA-005 | No documented data-processing or retention policy for a company deployment. A compliance and governance decision for the operator, not an agent fix. | Info | manual |
+
+References: `nodes.py` (`SaveImage` metadata); `/view` and `/internal/files`
+(unauthenticated); `--disable-metadata`; `folder_paths` directory handling.
+
+---
+
+## IOC: active-compromise indicators
+
+Unlike DRIFT, which needs a baseline, these scan the host and install for
+signatures of an instance that is already compromised, drawn from the documented
+ComfyUI incidents and refreshed from the threat feed. Any hit is urgent and a
+human decision: take the instance offline and investigate.
+
+| ID | Detects and how | Severity | Fix |
+|---|---|---|---|
+| IOC-001 | LD_PRELOAD rootkit: `/etc/ld.so.preload` present, or an unexpected `LD_PRELOAD` in the process environment (for example `libpam_cache.so`), used by the 2026 botnet to hide miner files and processes. | Critical | manual |
+| IOC-002 | Hidden or immutable miner artifacts: files marked immutable (`chattr +i`), hidden dotfiles in `/var/tmp`, `/dev/shm`, `/usr/lib/locale`, `/var/cache/man`, or `/var/spool/cron` matching miner drop patterns, or masqueraded process names (`khugepaged_*`, `nv_uvm_*`, `.cpu`, `.gpu`). | Critical | manual |
+| IOC-003 | Unexpected persistence: cron entries, systemd units, autostart entries, or `authorized_keys` additions that fetch or run a remote payload. | Critical | manual |
+| IOC-004 | Backdoor node or poisoned startup workflow: a node such as `comfyui_perf_monitor` that re-fetches a payload on a timer, or an auto-run workflow (for example `user/default/workflows/default.json`) containing code-exec node calls or a curl/wget/urllib payload fetch. | Critical | quarantine |
+| IOC-005 | Known command-and-control or mining indicators: references to feed-listed C2 hosts or mining pools (for example the 2026 campaign's hosts and the Kryptex pools), Discord-webhook exfiltration, or anonymous-file-host uploads, found in node code, config, or observed egress. | Critical | manual |
+| IOC-006 | Known-malicious pip pin or node directory present: a superset of ComfyUI-Manager's small startup denylist plus the 2026 botnet indicators. Overlaps PATCH-007 and DEP-005; the IOC framing is "already installed on this host." | Critical | quarantine |
+
+References: Censys GHOST report; The Hacker News NadMesh; LLMVISION and Ultralytics
+incidents; ComfyUI-Manager `security_check` denylist; the ComfyGuard threat feed.
+
+---
+
+## OPS: monitoring, logging, and incident readiness
+
+Production readiness, and mostly human decisions. Core logging is minimal,
+in-memory (about 300 lines), unauthenticated, and actively cleared by attackers,
+so detection must come from outside the application.
+
+| ID | Detects and how | Severity | Fix |
+|---|---|---|---|
+| OPS-001 | No external access logging or audit trail. Core logs are in-memory and lost on restart, and nothing records who queued what. Recommend reverse-proxy access logs and centralized logging. | Medium | manual |
+| OPS-002 | No outbound egress monitoring or alerting for the C2 and mining-pool indicators in the IOC family. | Medium | manual |
+| OPS-003 | No host integrity monitoring or endpoint detection watching for the IOC signatures (`ld.so.preload`, immutable binaries, rogue cron, `/dev/shm` payloads). | Medium | manual |
+| OPS-004 | No backup or recovery for models, workflows, and config. This is business continuity and the clean-restore path after a compromise; a ComfyGuard baseline snapshot is the minimum. | Medium | manual |
+| OPS-005 | No incident-response plan or defined owner for a networked or company deployment. A readiness decision for the operator. | Info | manual |
+
+References: `app/logger.py` (in-memory logs, default capacity 300); `/internal/logs`
+(unauthenticated); the ComfyGuard snapshot as a baseline.
 
 ---
 
@@ -296,8 +447,30 @@ to concrete, testable checks:
 - Manager RCE history: PATCH plus HOST-007 plus API-003.
 - Secret and data leakage (UpGuard leaks, Comfy Deploy keys): SEC plus FLOW.
 - Host and container weakness that turns a node bug into host compromise: HOST.
+- Availability and resource abuse (queue flooding, GPU mining amplification): DOS.
+- Reverse-proxy and gateway hardening (headers, TLS, the WebSocket auth gotcha):
+  GW plus API-008.
+- Browser-side node extensions (XSS and exfiltration in the operator's browser):
+  WEB.
+- Data protection and privacy for company and GDPR deployments: DATA.
+- Whether the instance is already compromised (the 2026 botnet IOCs): IOC.
+- Production monitoring, logging, and incident readiness: OPS.
 - Post-baseline compromise and instability (tampered node, planted node, config
   downgrade, exposure regression): DRIFT, via `comfyguard diff`.
+
+## Pre-exposure gate (blocker checks)
+
+These must pass before an instance is exposed to a company network or the
+internet, and should be fixed immediately if it is already exposed:
+
+- Reachable with no authenticating layer: EXP-001, EXP-002, EXP-005, AUTH-001,
+  AUTH-004.
+- Unauthenticated RCE or high-risk surface reachable: API-003, API-008,
+  PATCH-002, PATCH-005.
+- Known-malicious node or active-compromise indicator: PATCH-007, any IOC finding.
+- Container or host escape and lateral-movement surface: HOST-002, HOST-003,
+  HOST-014.
+- No rollback point captured (take a `comfyguard snapshot` baseline first).
 
 The ruleset is versioned. New CVEs and IOCs are added as advisory and incident
 data, so the catalog grows without changing the engine.

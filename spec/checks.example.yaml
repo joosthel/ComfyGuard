@@ -11,6 +11,8 @@
 #   category      finding category
 #   severity      default CVSS 4.0 band; may be raised/lowered by the detector
 #   confidence    default confidence
+#   urgency       blocker | urgent | standard | hardening (triage for deployed instances)
+#   decision_owner  optional: "human" when resolving it is inherently an operator call
 #   remediation   class + gate the agent plan must honor
 #   detector      which collector Facts to read and how to match
 #   references    citations attached to every finding from this check
@@ -272,3 +274,155 @@ checks:
     references:
       - type: doc
         url: docs/CHECKS.md
+
+  # ---- Deployment / production families (examples) ----
+
+  - id: API-008
+    title: WebSocket /ws reachable unauthenticated
+    category: api
+    severity: high
+    confidence: high
+    urgency: blocker
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: network
+      requires_authorization: true
+      logic: >
+        ws_connect("/ws") succeeds without auth
+        AND receives status/preview broadcasts
+      note: Non-browser clients bypass the origin-only middleware; it is CSRF defense, not auth.
+    references:
+      - type: source
+        url: https://raw.githubusercontent.com/comfyanonymous/ComfyUI/master/server.py
+
+  - id: DOS-001
+    title: No rate limiting in front of /prompt
+    category: availability
+    severity: high
+    confidence: medium
+    urgency: urgent
+    decision_owner: human
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: [install, network]
+      logic: networked AND not proxy_rate_limit_detected
+      note: Core has no throttling; the pending queue is unbounded.
+    references:
+      - type: policy
+        url: https://raw.githubusercontent.com/comfyanonymous/ComfyUI/master/SECURITY.md
+
+  - id: GW-003
+    title: WebSocket not behind the proxy auth
+    category: gateway
+    severity: high
+    confidence: medium
+    urgency: blocker
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: network
+      logic: >
+        proxy_auth_on("/") AND ws_reachable_without_auth("/ws")
+    references:
+      - type: discussion
+        url: https://github.com/comfyanonymous/ComfyUI/discussions/2786
+
+  - id: WEB-001
+    title: Node browser JS calls an external host
+    category: web-extension
+    severity: high
+    confidence: medium
+    urgency: urgent
+    remediation:
+      class: manual
+      gate: review-required
+    detector:
+      collector: node
+      method: js-ast
+      logic: >
+        web_directory_js_calls(["fetch", "XMLHttpRequest", "WebSocket"])
+        to non_self_origin (hardcoded IP, webhook, paste/anon-file host)
+    references:
+      - type: research
+        url: https://labs.snyk.io/resources/hacking-comfyui-through-custom-nodes/
+
+  - id: HOST-014
+    title: Lateral-movement service reachable (Docker 2375, Redis)
+    category: host
+    severity: critical
+    confidence: high
+    urgency: blocker
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: [host, network]
+      logic: >
+        reachable(host, 2375) OR reachable_unauth(host, 6379)
+      note: Exact escape/persistence vectors used by the 2026 GHOST/NadMesh botnets.
+    references:
+      - type: incident
+        url: https://censys.com/blog/comfyui-servers-cryptomining-proxy-botnet/
+
+  - id: DATA-002
+    title: Outputs and uploads exposed without access control
+    category: data
+    severity: high
+    confidence: high
+    urgency: urgent
+    decision_owner: human
+    remediation:
+      class: config
+      gate: review-required
+    detector:
+      collector: [install, network]
+      logic: >
+        networked AND reachable_unauth("/view")
+        AND reachable_unauth("/internal/files/output")
+      note: Personal or sensitive images readable by anyone who can reach the instance (GDPR relevance).
+    references:
+      - type: source
+        url: https://raw.githubusercontent.com/comfyanonymous/ComfyUI/master/server.py
+
+  - id: IOC-001
+    title: LD_PRELOAD rootkit present
+    category: ioc
+    severity: critical
+    confidence: high
+    urgency: blocker
+    decision_owner: human
+    remediation:
+      class: manual
+      gate: human-only
+    detector:
+      collector: host
+      logic: >
+        file_exists("/etc/ld.so.preload") OR
+        env_contains("LD_PRELOAD", feed.rootkit_names)
+      note: Used by the 2026 botnet to hide miner files/processes. Any hit = take the instance offline.
+    references:
+      - type: incident
+        url: https://censys.com/blog/comfyui-servers-cryptomining-proxy-botnet/
+
+  - id: OPS-004
+    title: No backup or recovery for models, workflows, and config
+    category: operations
+    severity: medium
+    confidence: high
+    urgency: standard
+    decision_owner: human
+    remediation:
+      class: manual
+      gate: review-required
+    detector:
+      collector: [host]
+      logic: no_backup_detected AND no_baseline_snapshot
+      note: A ComfyGuard baseline snapshot is the minimum clean-restore path after a compromise.
+    references:
+      - type: doc
+        url: docs/SNAPSHOT.md

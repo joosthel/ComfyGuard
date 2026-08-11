@@ -174,8 +174,11 @@ example, no Docker, or no reachable URL).
   (`security_level`, `allow_pip_install`, `allow_git_url_install`, channels).
 - **Node collector.** Walks `custom_nodes/`, parses each node's Python into an
   AST, reads `requirements.txt`, `install.py`, `pyproject.toml` `[tool.comfy]`,
-  and `WEB_DIRECTORY` assets, and records import-time (module top-level) code
-  separately from runtime code because import-time code runs at ComfyUI startup.
+  and records import-time (module top-level) code separately from runtime code
+  because import-time code runs at ComfyUI startup. It also parses the node's
+  browser JavaScript under `WEB_DIRECTORY` for the WEB family (external calls,
+  DOM and eval sinks, credential reads), since that code runs in the operator's
+  browser.
 - **Dependency collector.** Resolves declared dependencies (per node and global)
   and, when available, the installed environment (`pip` metadata), for SCA.
 - **Model collector.** Enumerates model files across the configured roots,
@@ -185,14 +188,19 @@ example, no Docker, or no reachable URL).
 - **Workflow collector.** Parses workflow and API JSON files and PNG metadata
   chunks, mapping referenced node classes and scanning parameter values.
 - **Host collector.** Reads process owner, container `USER`, `HostConfig`
-  (`--privileged`, mounts, Docker socket), file permissions on sensitive dirs,
-  and the process environment for secret-shaped values.
+  (`--privileged`, mounts, Docker socket), capabilities and seccomp posture,
+  resource limits, file permissions on sensitive dirs, and the process environment
+  for secret-shaped values. It also runs the IOC scan: rootkit preload
+  (`/etc/ld.so.preload`), immutable or hidden miner artifacts, rogue persistence
+  (cron, systemd, `authorized_keys`), and reachable lateral-movement services
+  (Docker `2375`, Redis), matched against the threat feed.
 - **Network collector (opt-in).** Performs safe, read-mostly probes against an
   authorized target URL: banner and version fingerprint, presence of an auth
-  challenge, CORS header value, TLS presence, and reachability of high-signal
-  endpoints. It uses existence-oracle style probes (a 200-versus-403 on a known
-  in-tree file) rather than exfiltrating anything. It never posts a payload to
-  `/prompt` and never calls a state-changing endpoint.
+  challenge, CORS header value, TLS presence and quality, the security response
+  headers and whether `/ws` is behind auth (the gateway family), and reachability
+  of high-signal endpoints. It uses existence-oracle style probes (a
+  200-versus-403 on a known in-tree file) rather than exfiltrating anything. It
+  never posts a payload to `/prompt` and never calls a state-changing endpoint.
 
 Collectors emit typed **Facts** into an in-memory store. Facts are the only thing
 checks see, which keeps checks pure and testable and keeps collection (which
