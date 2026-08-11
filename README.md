@@ -107,8 +107,9 @@ works offline. See [docs/SPEC.md](docs/SPEC.md) and
 - **Custom nodes.** Static analysis for code-exec, runtime installs, obfuscation,
   network calls, and `install.py` behavior, with provenance and a known-malicious
   list. Nothing is executed.
-- **Dependencies.** Declared and installed packages against OSV and the PyPA
-  Advisory DB, with pinning and typosquat checks.
+- **Dependencies.** Pinning, direct-URL/git installs, typosquat-shaped names, and
+  known-malicious pins from the bundled feed. ComfyGuard runs fully offline, so
+  live CVE lookups (OSV, PyPA) are out of scope; run `pip-audit` yourself for that.
 - **Model files.** Static pickle inspection of `.ckpt`/`.pt`/`.bin`, without
   loading them.
 - **Secrets and host.** Credentials in the environment or config, root execution,
@@ -264,10 +265,11 @@ go to their own maintainers.
 ## Acknowledgements
 
 ComfyGuard builds on the work of the ComfyUI project and ComfyUI-Manager (whose
-snapshot format it stays compatible with), and on established open-source security
-tools it is designed to wrap, including Bandit and Semgrep, pip-audit and OSV,
-modelscan and Fickling, and the SARIF and CycloneDX standards. The threat research
-credits the vendors and researchers cited in
+snapshot format it stays compatible with), and on the ideas of established
+open-source security tools, including Bandit and Semgrep, modelscan and Fickling,
+and the SARIF and CycloneDX standards. It runs fully offline; for live dependency
+CVEs, pair it with `pip-audit` or OSV, which ComfyGuard deliberately does not call.
+The threat research credits the vendors and researchers cited in
 [docs/RESEARCH.md](docs/RESEARCH.md).
 
 ## License

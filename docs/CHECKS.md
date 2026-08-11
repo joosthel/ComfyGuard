@@ -189,14 +189,20 @@ environment.
 
 | ID | Detects and how | Severity | Fix |
 |---|---|---|---|
-| DEP-001 | Declared dependency with a known advisory (OSV or PyPA Advisory DB). | Per advisory | upgrade |
+| DEP-001 | Declared dependency matching the bundled advisory feed (curated known-bad or known-vulnerable pins for the ComfyUI ecosystem). ComfyGuard is offline, so this covers the bundled feed only, not live OSV/PyPA. | Per feed entry | upgrade |
 | DEP-002 | Unpinned dependency (no `==` and no hash), which allows a future compromised release to be pulled in. | Low to Medium | config |
 | DEP-003 | Direct-URL, `git+http(s)`, or non-PyPI install line in requirements. | Medium | manual |
 | DEP-004 | Typosquat-shaped package name: a close edit-distance match to a popular package. | Medium | manual |
 | DEP-005 | Known-malicious pinned version (compromised Ultralytics builds and similar). Overlaps PATCH-007. | Critical | quarantine |
-| DEP-006 | Installed-environment audit: `pip` metadata matched against OSV for the actually-installed set, catching drift from declared deps. | Per advisory | upgrade |
+| DEP-006 | Installed-package audit: read installed versions from the target's `site-packages` and match them against the bundled feed (offline), catching drift from declared deps. Live OSV of the installed set is out of scope. | Per feed entry | upgrade |
 
-References: pip-audit, OSV-Scanner, PyPA Advisory DB; Ultralytics compromise.
+References: Ultralytics compromise; the ComfyGuard bundled feed.
+
+**Scope note.** ComfyGuard runs fully offline and does not query OSV, the PyPA
+Advisory DB, or any network service. Dependency checks cover pinning, install
+source, typosquats, and the bundled known-bad feed. For live CVE coverage of the
+full dependency set, run `pip-audit` or OSV-Scanner as a separate, complementary
+step. That live scanning is deliberately out of scope for ComfyGuard.
 
 ---
 

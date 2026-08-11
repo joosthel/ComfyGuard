@@ -63,8 +63,9 @@ plus two extensions and writes the report:
 3. **Custom nodes.** Static analysis of each node (code-exec, subprocess,
    obfuscation, network calls, `install.py` behavior), git provenance, and a
    known-malicious list. Nothing is executed.
-4. **Dependencies.** Each node's declared and installed packages audited against
-   OSV and the PyPA Advisory DB, with pinning and typosquat checks.
+4. **Dependencies.** Pinning, direct-URL/git installs, typosquat-shaped names, and
+   known-malicious pins from the bundled feed. ComfyGuard runs fully offline, so
+   live CVE lookups (OSV, PyPA) are out of scope; pair it with `pip-audit` for that.
 5. **Models.** Static pickle inspection of `.pt`/`.ckpt`/`.bin` files, without
    deserializing them.
 6. **Secrets** (extension). Credentials in the environment, config, or saved

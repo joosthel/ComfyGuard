@@ -236,7 +236,10 @@ Detection techniques available to checks:
   nodes, keyed on both package metadata and git commit, with a source-level
   fallback probe where version data is ambiguous (see [RESEARCH.md](RESEARCH.md)
   section 7).
-- **Dependency SCA** against OSV and the PyPA Advisory DB.
+- **Dependency hygiene**: pinning, direct-URL/git installs, typosquat-shaped
+  names, and known-malicious pins from the bundled feed. Live CVE lookups (OSV,
+  PyPA) are out of scope so the tool stays fully offline; operators run `pip-audit`
+  separately for that.
 - **Secret scanning** (regex plus entropy) with a baseline-file workflow so
   acknowledged false positives stay quiet on later runs.
 
