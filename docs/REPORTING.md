@@ -4,19 +4,20 @@
 schema they share, the deployment risk grade, and the agent remediation plan with
 its guardrails. Concrete examples are in `examples/`.
 
-The core artifacts from an `audit`:
+The core artifacts from an `audit`. Phase 1 emits the machine report, the agent
+remediation plan, and the human report; SARIF is planned (Phase 2).
 
 1. **Machine report** (`report.json`): the full, structured result. The source of
    truth. Includes a CycloneDX ML-BOM inventory of nodes, dependencies, and model
    files.
-2. **SARIF** (`report.sarif`): SARIF 2.1.0 for GitHub code scanning and other
-   SARIF consumers, so findings appear as inline annotations in a PR or the
+2. **SARIF** (`report.sarif`, planned): SARIF 2.1.0 for GitHub code scanning and
+   other SARIF consumers, so findings appear as inline annotations in a PR or the
    security tab.
 3. **Agent remediation plan** (`FIXES.md`, plus the same actions inside
    `report.json`): an ordered, gated set of actions written for an automated
    coding agent to carry out. ComfyGuard writes it; it never applies it.
-4. **Human report** (`report.md` or `.html`): a readable summary that leads with
-   the grade and the top findings.
+4. **Human report** (`report.md`): a readable summary that leads with the grade
+   and the top findings.
 
 `comfyguard verify` (planned) will produce a diff-of-findings report that compares
 a fresh scan against a prior one by finding fingerprint. It is read-only too. Until
