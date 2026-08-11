@@ -31,6 +31,34 @@ def build_report(facts, findings, meta) -> dict:
     blockers = [f.fingerprint for f in findings if f.urgency == "blocker"]
     core = facts.get("core", {})
     mgr = facts.get("manager", {})
+    host = facts.get("host", {})
+    launch = facts.get("launch", {})
+
+    notes = []
+    if host.get("perms_check_available") is False:
+        notes.append("Directory-permission checks are unavailable on this platform (Windows) and were skipped.")
+    if launch.get("source") is None:
+        notes.append("No launch configuration or running process was detected; the bind address is undetermined (see EXP-000).")
+    if facts.get("models", {}).get("capped"):
+        notes.append("The model inventory hit the file cap and may be incomplete.")
+
+    bom = {
+        "nodes": [
+            {"name": n["name"], "path": n["path"], "disabled": n.get("disabled"),
+             "commit": n.get("commit"), "remote": n.get("remote"),
+             "files_scanned": n.get("files_scanned"), "files_total": n.get("files_total")}
+            for n in facts.get("nodes", [])
+        ],
+        "dependencies": {
+            "declared_count": len(facts.get("deps", {}).get("declared", [])),
+            "declared": [d["raw"] for d in facts.get("deps", {}).get("declared", [])],
+        },
+        "models": [
+            {"path": m["path"], "ext": m["ext"], "size": m.get("size"), "pickle": m.get("pickle")}
+            for m in facts.get("models", {}).get("files", [])
+        ],
+    }
+
     return {
         "schema_version": SCHEMA_VERSION,
         "ruleset_version": RULESET_VERSION,
@@ -40,13 +68,23 @@ def build_report(facts, findings, meta) -> dict:
         "scan": {
             "started_at": meta.get("started_at"),
             "duration_seconds": meta.get("duration_seconds"),
+            "notes": notes,
+            "launch": {"source": launch.get("source"), "source_kind": launch.get("source_kind"),
+                       "flags": launch.get("flags", {})},
             "target": {
                 "root": facts.get("root"),
+                "comfy_root": facts.get("comfy_root"),
                 "is_comfyui": facts.get("is_comfyui"),
+                "platform": facts.get("scanner", {}).get("platform"),
                 "core_version": core.get("version"),
                 "core_commit": core.get("commit"),
                 "manager_present": mgr.get("present"),
                 "manager_version": mgr.get("version"),
+                "manager_security_level": mgr.get("security_level"),
+                "custom_node_packs": len(facts.get("nodes", [])),
+                "declared_dependencies": len(facts.get("deps", {}).get("declared", [])),
+                "model_files": len(facts.get("models", {}).get("files", [])),
+                "firewall_visible": bool((facts.get("firewall") or {}).get("available")),
                 "url_probed": (facts.get("network") or {}).get("url"),
                 "network_probe_authorized": bool(facts.get("network")),
             },
@@ -59,6 +97,7 @@ def build_report(facts, findings, meta) -> dict:
             "blockers": blockers,
             "pre_exposure_gate_passed": len(blockers) == 0,
         },
+        "bom": bom,
         "findings": [f.to_dict() for f in findings],
     }
 
@@ -86,6 +125,14 @@ def render_markdown(report: dict) -> str:
     lines.append("| Critical | High | Medium | Low | Info |")
     lines.append("|---|---|---|---|---|")
     lines.append(f"| {c['critical']} | {c['high']} | {c['medium']} | {c['low']} | {c['info']} |")
+    lines.append("")
+    lch = report["scan"]["launch"]
+    lines.append(f"Scanned {t.get('custom_node_packs', 0)} custom-node packs, "
+                 f"{t.get('declared_dependencies', 0)} declared dependencies, "
+                 f"{t.get('model_files', 0)} model files. "
+                 f"Launch config: {lch.get('source') or 'not detected'}.")
+    for note in report["scan"].get("notes", []):
+        lines.append(f"- Note: {note}")
     lines.append("")
     lines.append("## Findings")
     lines.append("")
@@ -124,17 +171,15 @@ def render_fixes(report: dict) -> str:
     lines.append("")
     findings = report["findings"]
     used = set()
-    act = 0
-    for phase_name, _cats, pred in PHASES:
-        phase_findings = [f for f in findings if id(f) not in used and pred_ok(f, pred)]
-        for f in phase_findings:
-            used.add(id(f))
-        if not phase_findings:
-            continue
-        lines.append(f"## {phase_name}")
+    counter = [0]
+
+    def emit(section, items):
+        if not items:
+            return
+        lines.append(f"## {section}")
         lines.append("")
-        for f in phase_findings:
-            act += 1
+        for f in items:
+            counter[0] += 1
             rem = f.get("remediation", {})
             loc = f["location"]
             where = loc.get("path", "")
@@ -142,7 +187,7 @@ def render_fixes(report: dict) -> str:
                 where += f":{loc['line']}"
             gate = rem.get("gate", "review-required")
             owner = " HUMAN DECISION." if f.get("decision_owner") == "human" else ""
-            lines.append(f"**act-{act:03d} ({gate}){owner} {f['title']}** "
+            lines.append(f"**act-{counter[0]:03d} ({gate}){owner} {f['title']}** "
                          f"[{f['check_id']}, {f['severity']}, {f['urgency']}] at `{where}`")
             lines.append(f"- Addresses: `{f['fingerprint']}`")
             lines.append(f"- What: {rem.get('summary', '')}")
@@ -153,6 +198,14 @@ def render_fixes(report: dict) -> str:
             if rem.get("rollback"):
                 lines.append(f"- Rollback: {rem['rollback']}")
             lines.append("")
+
+    for phase_name, _cats, pred in PHASES:
+        phase_findings = [f for f in findings if id(f) not in used and pred_ok(f, pred)]
+        for f in phase_findings:
+            used.add(id(f))
+        emit(phase_name, phase_findings)
+    remaining = [f for f in findings if id(f) not in used]
+    emit("Other findings to review", remaining)
     lines.append("## Verify")
     lines.append("")
     lines.append("After changes, re-run `comfyguard audit <path>` and confirm the addressed findings are gone and "

@@ -36,7 +36,8 @@ def cmd_audit(args) -> int:
     root = root.resolve()
 
     started = time.time()
-    facts = collectors.collect(root, url=args.url, authorized=args.authorized)
+    facts = collectors.collect(root, url=args.url, authorized=args.authorized,
+                               launch_file=args.launch_file, launch_dir=args.launch_dir)
     if not facts.get("is_comfyui"):
         print(f"warning: {root} does not look like a ComfyUI install "
               "(no main.py/comfy/custom_nodes). Scanning anyway.", file=sys.stderr)
@@ -64,7 +65,7 @@ def _print_summary(report, out_dir):
     s = report["summary"]
     c = s["counts"]
     print()
-    print(f"ComfyGuard {__version__} — audit complete (read-only, nothing was changed)")
+    print(f"ComfyGuard {__version__} - audit complete (read-only, nothing was changed)")
     print(f"  Target : {report['scan']['target']['root']}")
     print(f"  Grade  : {s['grade']}   {s['grade_reason']}")
     print(f"  Counts : critical {c['critical']} | high {c['high']} | medium {c['medium']} | low {c['low']} | info {c['info']}")
@@ -93,33 +94,50 @@ def _not_yet(name):
     return run
 
 
+class _Parser(argparse.ArgumentParser):
+    def error(self, message):
+        # Distinct exit code for usage errors so they don't collide with audit's
+        # "critical findings found" exit code (2).
+        self.print_usage(sys.stderr)
+        print(f"{self.prog}: error: {message}", file=sys.stderr)
+        raise SystemExit(64)
+
+
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
+    p = _Parser(
         prog="comfyguard",
         description="Read-only security evaluation for ComfyUI. It scans an install and writes a "
                     "report plus an agent-ready FIXES.md. It changes nothing on your instance.")
     p.add_argument("--version", action="version", version=f"comfyguard {__version__}")
-    sub = p.add_subparsers(dest="command")
+    sub = p.add_subparsers(dest="command", parser_class=_Parser)
 
     a = sub.add_parser("audit", help="Scan a ComfyUI install (read-only) and write a report.")
-    a.add_argument("path", help="Path to the ComfyUI installation directory.")
+    a.add_argument("path", help="Path to the ComfyUI installation directory (or a portable root).")
     a.add_argument("--out", default="./comfyguard-report", help="Output directory for the report (default ./comfyguard-report).")
     a.add_argument("--url", default=None, help="Optional URL of the running instance for a safe network probe.")
     a.add_argument("--authorized", action="store_true",
                    help="Assert you are authorized to probe --url. Required for the network probe.")
+    a.add_argument("--launch-file", default=None, help="Explicit launcher/unit file to read the bind flags from.")
+    a.add_argument("--launch-dir", default=None, help="Extra directory to search for launcher files.")
     a.add_argument("--fail-on", default="critical", choices=list(SEV_ORDER),
                    help="Exit non-zero if a finding at or above this severity exists (default critical).")
     a.add_argument("--no-fail", action="store_true", help="Always exit 0 regardless of findings.")
     a.set_defaults(func=cmd_audit)
 
     for name in ("snapshot", "diff", "restore"):
-        sp = sub.add_parser(name, help=f"(planned) see docs/SNAPSHOT.md")
+        sp = sub.add_parser(name, help="(planned) see docs/SNAPSHOT.md")
+        sp.add_argument("args", nargs="*", help="(accepted but ignored until implemented)")
         sp.set_defaults(func=_not_yet(name))
 
     return p
 
 
 def main(argv=None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
     parser = build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "command", None):

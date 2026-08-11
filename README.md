@@ -162,12 +162,17 @@ agent-ready output. Deterministic and explainable. The reasoning is in
 
 ## Output
 
-- `report.json`: structured findings and a bill of materials for nodes,
-  dependencies, and models.
-- `report.md`: a human summary that leads with the grade.
-- `report.sarif`: SARIF 2.1.0, so node findings show up in GitHub code scanning.
+Phase 1 (`audit`) writes:
+
+- `report.json`: structured findings, a `bom` block (nodes, declared
+  dependencies, and models), and the detected launch config.
+- `report.md`: a human summary that leads with the grade and the pre-exposure gate.
 - `FIXES.md`: an ordered, gated remediation plan for a coding agent. ComfyGuard
   writes it; it never applies it.
+
+Planned for later phases:
+
+- `report.sarif` (phase 2): SARIF 2.1.0 for GitHub code scanning.
 - `snapshot.json`: a full state manifest (from `snapshot`), restore-compatible
   with ComfyUI-Manager.
 - `diff.json` / `diff.md`: what changed between two states, as DRIFT findings
