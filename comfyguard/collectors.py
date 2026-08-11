@@ -364,15 +364,18 @@ def _nodes(root: Path) -> list:
         if entry.name in SKIP_NODE_DIRS or entry.name.startswith("."):
             continue  # dot-dirs (.removed_packs_backup, .disabled) and non-pack dirs
         disabled = entry.name.endswith(".disabled")
-        all_py = []
-        for f in entry.rglob("*.py"):
-            parts = {x.lower() for x in f.relative_to(entry).parts}
-            if parts & SKIP_PACK_SUBDIRS or any(x.endswith(".disabled") for x in f.parts):
-                continue
-            all_py.append(f)
+        all_py, js_files = [], []
+        # os.walk with followlinks=False is symlink-loop safe; prune skipped subdirs.
+        for dirpath, dirnames, filenames in os.walk(entry, followlinks=False):
+            dirnames[:] = [d for d in dirnames
+                           if d.lower() not in SKIP_PACK_SUBDIRS and not d.endswith(".disabled")]
+            for fn in filenames:
+                if fn.endswith(".py"):
+                    all_py.append(Path(dirpath) / fn)
+                elif fn.endswith(".js") and len(js_files) < 20:
+                    js_files.append(Path(dirpath) / fn)
         all_py.sort(key=lambda f: (ENTRYPOINT_ORDER.get(f.name, 9), str(f)))
         py_files = all_py[:MAX_NODE_PY]
-        js_files = [f for f in entry.rglob("*.js") if "__pycache__" not in f.parts][:20]
         reqs = entry / "requirements.txt"
         nodes.append({
             "name": entry.name,
@@ -424,25 +427,33 @@ def _models(root: Path) -> dict:
     files = []
     capped = False
     if md.is_dir():
-        for f in md.rglob("*"):
-            if not f.is_file():
-                continue
-            ext = f.suffix.lower()
-            if ext in PICKLE_EXTS or ext in SAFE_MODEL_EXTS:
-                try:
-                    size = f.stat().st_size
-                except Exception:
-                    size = None
-                files.append({"path": str(f.relative_to(root)), "ext": ext, "size": size, "pickle": ext in PICKLE_EXTS})
-                if len(files) >= MAX_MODELS:
-                    capped = True
-                    break
+        for dirpath, dirnames, filenames in os.walk(md, followlinks=False):
+            for fn in filenames:
+                ext = Path(fn).suffix.lower()
+                if ext in PICKLE_EXTS or ext in SAFE_MODEL_EXTS:
+                    f = Path(dirpath) / fn
+                    try:
+                        size = f.stat().st_size
+                    except Exception:
+                        size = None
+                    files.append({"path": str(f.relative_to(root)), "ext": ext, "size": size, "pickle": ext in PICKLE_EXTS})
+                    if len(files) >= MAX_MODELS:
+                        capped = True
+                        break
+            if capped:
+                break
     return {"files": files, "capped": capped}
+
+
+COMFY_PORTS = {"8188", "8189", "3000", "8080", "8000"}
+PUBLISH_RE = re.compile(r"\"?(?:(?:(\d{1,3}(?:\.\d{1,3}){3})|(\[[0-9a-fA-F:]+\])):)?(\d{2,5}):(\d{2,5})\"?")
 
 
 def _host(root: Path) -> dict:
     host = {"docker_user": None, "docker_user_source": None, "privileged": None,
             "exposed_ports": [], "mounts_docker_socket": None,
+            "published_app_ports": [], "publishes_nonloopback_app_port": False,
+            "compose_source": None,
             "perms_check_available": os.name != "nt",
             "custom_nodes_writable": _world_or_group_writable(root / "custom_nodes"),
             "models_writable": _world_or_group_writable(root / "models")}
@@ -456,13 +467,22 @@ def _host(root: Path) -> dict:
     for base in (root, root.parent):
         for comp in list(base.glob("docker-compose*.yml")) + list(base.glob("docker-compose*.yaml")):
             text = _read(comp)
+            host["compose_source"] = comp.name
             if re.search(r"(?im)privileged:\s*true", text):
                 host["privileged"] = True
             if "/var/run/docker.sock" in text:
                 host["mounts_docker_socket"] = True
-            for port in re.findall(r"\"?(\d{2,5}):\d{2,5}\"?", text):
-                if port in ("2375", "2376", "6379"):
-                    host["exposed_ports"].append(port)
+            for m in PUBLISH_RE.finditer(text):
+                host_ip, _v6, host_port, container_port = m.group(1), m.group(2), m.group(3), m.group(4)
+                if host_port in ("2375", "2376", "6379") or container_port in ("2375", "2376", "6379"):
+                    host["exposed_ports"].append(host_port)
+                if container_port in COMFY_PORTS or host_port in COMFY_PORTS:
+                    ip = host_ip or ("loopback" if _v6 and "::1" in _v6 else None)
+                    nonloop = ip not in ("127.0.0.1", "loopback")
+                    host["published_app_ports"].append({"host_ip": host_ip, "host_port": host_port,
+                                                        "container_port": container_port, "nonloopback": nonloop})
+                    if nonloop:
+                        host["publishes_nonloopback_app_port"] = True
     return host
 
 

@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Byte-compile the package
+        run: python -m compileall -q comfyguard
+      - name: Run the test suite (no third-party deps)
+        run: python tests/run_all.py
+      - name: CLI smoke (version + usage exit codes)
+        run: |
+          python -m comfyguard --version
+          # planned stubs exit 4, not the audit critical code
+          set +e
+          python -m comfyguard snapshot .; test $? -eq 4 || (echo "snapshot stub exit code wrong" && exit 1)

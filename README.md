@@ -2,6 +2,7 @@
 
 Read-only security evaluation for ComfyUI, with a report your coding agent can act on.
 
+[![CI](https://github.com/joosthel/ComfyGuard/actions/workflows/ci.yml/badge.svg)](https://github.com/joosthel/ComfyGuard/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0057ff.svg)](LICENSE)
 ![Status: Phase 1 (audit)](https://img.shields.io/badge/status-Phase%201%20audit-0057ff.svg)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-1f9d55.svg)](CONTRIBUTING.md)

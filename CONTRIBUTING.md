@@ -53,6 +53,16 @@ will not be merged.
 Every check should be low-noise. Prefer flagging for review over asserting malice,
 and escalate severity only when a capability and a suspicious indicator co-occur.
 
+## Tests
+
+Run the suite before submitting: `python tests/run_all.py` (no third-party
+dependencies; also works under `pytest`). It builds synthetic ComfyUI fixtures
+(portable, systemd, docker-compose, clean, IOC, and more) in
+[tests/harness.py](tests/harness.py) so new checks can be validated without a real
+instance. A new check should come with a fixture and an assertion. CI
+([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs this on Python
+3.10 through 3.13.
+
 ## Pull requests
 
 - Keep each PR focused on one change.

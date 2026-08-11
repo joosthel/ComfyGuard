@@ -54,7 +54,8 @@ def _networked(facts) -> bool:
     listen = flags.get("listen")
     non_loopback = listen is True or (isinstance(listen, str) and listen.split(",")[0] not in LOOPBACK)
     net = facts.get("network") or {}
-    return bool(non_loopback or net.get("reachable"))
+    host = facts.get("host") or {}
+    return bool(non_loopback or net.get("reachable") or host.get("publishes_nonloopback_app_port"))
 
 
 def _fw_note(facts) -> str:
@@ -88,7 +89,23 @@ def _exposure(facts):
                          "action": "Remove the non-loopback --listen (or set 127.0.0.1); front the app with an auth proxy or scope the host firewall.",
                          "rollback": "Restore the prior launch line."}))
 
-    if src is None and not facts.get("network"):
+    host = facts.get("host") or {}
+    if host.get("publishes_nonloopback_app_port") and not non_loopback:
+        out.append(_mk(
+            "EXP-001", "Docker publishes the ComfyUI port to all interfaces", "exposure", "critical",
+            "A docker-compose file publishes the ComfyUI port to a non-loopback host address, so the instance is reachable on the network regardless of the in-container bind."
+            + _fw_note(facts),
+            impact="Any network-reachable client can reach the API.",
+            confidence="high", urgency="blocker", decision_owner="human",
+            location={"kind": "container", "path": host.get("compose_source") or "docker-compose"},
+            evidence="; ".join(f"{p.get('host_ip') or '0.0.0.0'}:{p['host_port']}->{p['container_port']}"
+                               for p in host.get("published_app_ports", []) if p.get("nonloopback")),
+            remediation={"class": "config", "gate": "review-required",
+                         "summary": "Publish to 127.0.0.1 only, and reach the instance through an authenticating proxy.",
+                         "action": "Prefix the compose port mapping with 127.0.0.1, or remove the published port.",
+                         "rollback": "Restore the prior compose ports."}))
+
+    if src is None and not facts.get("network") and not host.get("publishes_nonloopback_app_port"):
         # Fail-safe: could not determine the bind configuration, so do not let the
         # pre-exposure gate pass silently.
         out.append(_mk(
@@ -443,7 +460,7 @@ def _scan_python(text: str):
     try:
         tree = ast.parse(text)
     except Exception:
-        return []
+        return None  # unparseable (syntax error / Py2); distinct from "no hits"
     sc = _Scanner()
     sc.visit(tree)
     return sc.hits
@@ -470,6 +487,7 @@ CRED_RE = re.compile(r"(\.aws|\.ssh/|Login Data|wallet\.dat|cookies\.sqlite|/\.c
 
 def _nodes(facts, root: Path):
     out = []
+    unparsed = 0
     for node in facts.get("nodes", []):
         if node.get("disabled"):
             continue
@@ -487,9 +505,23 @@ def _nodes(facts, root: Path):
             m = CRED_RE.search(text)
             if m:
                 out.append(_finding_node("NODE-007", rel, _line_of(text, m.start()), m.group(0), False))
-            for cid, line, evidence, toplevel in _scan_python(text):
+            hits = _scan_python(text)
+            if hits is None:
+                unparsed += 1
+                continue
+            for cid, line, evidence, toplevel in hits:
                 use_cid = "NODE-011" if is_install else cid
                 out.append(_finding_node(use_cid, rel, line, evidence, toplevel or is_install))
+    if unparsed:
+        out.append(_mk(
+            "SCAN-002", "Some custom-node files could not be parsed", "coverage", "info",
+            "One or more Python files failed to parse (syntax error or Python 2) and were not statically analyzed, so a finding could have been missed in them.",
+            impact="Reduced coverage.", confidence="high", urgency="hardening",
+            location={"kind": "config", "path": "custom_nodes"},
+            evidence=f"{unparsed} file(s) unparsed",
+            remediation={"class": "manual", "gate": "review-required",
+                         "summary": "Review the unparseable files manually if the packs are untrusted.",
+                         "action": "Open the affected files.", "rollback": "N/A"}))
     return out
 
 
