@@ -42,7 +42,7 @@ def run_checks(facts: dict, root: Path):
     findings += _ioc(facts)
     findings += _nodes(facts, root)
     findings += _deps(facts)
-    findings += _models(facts)
+    findings += _models(facts, root)
     findings += _secrets(facts, root)
     findings += _network_checks(facts)
     findings += _coverage(facts)
@@ -151,21 +151,39 @@ def _exposure(facts):
 
 
 def _auth(facts):
-    out = []
-    if _networked(facts):
-        out.append(_mk(
-            "AUTH-001", "No authenticating layer on a networked instance", "authentication", "critical",
-            "ComfyUI core has no authentication. On a networked instance, auth must come from a reverse proxy or VPN. None was detected."
-            + _fw_note(facts),
-            impact="Every endpoint, including /prompt (arbitrary code execution) and /ws, is open to anyone who can reach it.",
-            confidence="high", urgency="blocker", decision_owner="human",
-            location={"kind": "config", "path": "core"},
-            evidence="core has no auth; no proxy auth signature detected",
-            remediation={"class": "config", "gate": "review-required",
-                         "summary": "Put an authenticating, TLS-terminating proxy (nginx/Caddy/Cloudflare Access) in front, or keep it on a private network.",
-                         "action": "Add an auth proxy; treat --multi-user as storage partitioning, not auth.",
-                         "rollback": "Remote users must authenticate from now on."}))
-    return out
+    if not _networked(facts):
+        return []
+    proxy = facts.get("proxy") or {}
+    # A reverse proxy that enforces auth in front of the instance: downgrade to a
+    # verify note instead of a critical blocker, so a properly proxied instance is
+    # not a false positive. Confidence stays low because static config is not proof.
+    if proxy.get("detected") and proxy.get("auth"):
+        return [_mk(
+            "AUTH-001", "Authentication appears to be handled by a reverse proxy (verify)", "authentication", "info",
+            "A reverse-proxy config with an authentication directive that proxies to the ComfyUI port was found, so auth may be enforced in front of the instance. Confirm the proxy is actually in front of this instance and that it covers every path, including /ws.",
+            impact="If the proxy is bypassed or misconfigured, the unauthenticated API is exposed.",
+            confidence="low", urgency="hardening", decision_owner="human",
+            location={"kind": "config", "path": proxy.get("source") or "proxy"},
+            evidence=f"reverse proxy with an auth directive: {proxy.get('source')}",
+            remediation={"class": "manual", "gate": "review-required",
+                         "summary": "Confirm the proxy fronts this instance and authenticates all paths, including /ws.",
+                         "action": "Review the proxy config and test that unauthenticated requests are rejected.",
+                         "rollback": "N/A"})]
+    note = ""
+    if proxy.get("detected"):
+        note = f" A reverse proxy was detected ({proxy.get('source')}), but it has no authentication directive."
+    return [_mk(
+        "AUTH-001", "No authenticating layer on a networked instance", "authentication", "critical",
+        "ComfyUI core has no authentication. On a networked instance, auth must come from a reverse proxy or VPN. None was detected."
+        + note + _fw_note(facts),
+        impact="Every endpoint, including /prompt (arbitrary code execution) and /ws, is open to anyone who can reach it.",
+        confidence="high", urgency="blocker", decision_owner="human",
+        location={"kind": "config", "path": "core"},
+        evidence="core has no auth; no authenticating proxy detected",
+        remediation={"class": "config", "gate": "review-required",
+                     "summary": "Put an authenticating, TLS-terminating proxy (nginx/Caddy/Cloudflare Access) in front, or keep it on a private network.",
+                     "action": "Add an auth proxy; treat --multi-user as storage partitioning, not auth.",
+                     "rollback": "Remote users must authenticate from now on."})]
 
 
 def _versions(facts):
@@ -567,22 +585,44 @@ def _deps(facts):
     return out
 
 
-def _models(facts):
+def _models(facts, root: Path):
+    from . import pickscan
     files = facts.get("models", {}).get("files", [])
     pickles = [f for f in files if f.get("pickle")]
     if not pickles:
         return []
-    sample = ", ".join(f["path"] for f in pickles[:5])
-    more = "" if len(pickles) <= 5 else f" (+{len(pickles) - 5} more)"
-    return [_mk(
-        "MODEL-001", "Pickle-format model files present", "model-file", "info",
-        "One or more models use a pickle-bearing format (.ckpt/.pt/.pth/.bin/.pkl), which can execute code when loaded. Treat any from an untrusted source as code, not data.",
-        impact="Code execution on load if a file is malicious. Full opcode scanning is a later phase.",
-        confidence="high", urgency="standard", location={"kind": "model", "path": "models"},
-        evidence=f"{len(pickles)} pickle-format model file(s): {sample}{more}",
-        remediation={"class": "manual", "gate": "review-required",
-                     "summary": "Prefer safetensors; verify the provenance of any pickle-format model.",
-                     "action": "Replace untrusted pickle models with safetensors equivalents.", "rollback": "N/A"})]
+    out = []
+    clean = 0
+    for i, m in enumerate(pickles):
+        if i >= 400:
+            break
+        hits = pickscan.scan_pickle_file(root / m["path"])
+        if hits:
+            ev = ", ".join(f"{mod}.{name}" for mod, name in hits[:5])
+            out.append(_mk(
+                "MODEL-002", "Model pickle references a dangerous callable", "model-file", "critical",
+                "Static pickle inspection found a reference to a code-execution callable in this model file. It would run when the checkpoint is loaded. The file was not deserialized.",
+                impact="Code execution when the model is loaded.",
+                confidence="high", urgency="blocker", decision_owner="human",
+                location={"kind": "model", "path": m["path"]},
+                evidence=f"dangerous global(s): {ev}",
+                remediation={"class": "quarantine", "gate": "review-required",
+                             "summary": "Quarantine the file; do not load it; replace with a trusted safetensors equivalent.",
+                             "action": "Move the file aside and record its source; treat the host as suspect.",
+                             "rollback": "Restore only if independently confirmed safe."}))
+        else:
+            clean += 1
+    if clean:
+        out.append(_mk(
+            "MODEL-001", "Pickle-format model files present", "model-file", "info",
+            "Pickle-bearing model files are present. They scanned clean of known-dangerous opcodes, but pickle can still carry risk, so prefer safetensors from trusted sources.",
+            impact="Latent code-execution surface on load.",
+            confidence="high", urgency="standard", location={"kind": "model", "path": "models"},
+            evidence=f"{clean} pickle-format model file(s) scanned clean of dangerous opcodes",
+            remediation={"class": "manual", "gate": "review-required",
+                         "summary": "Prefer safetensors; verify the provenance of any pickle-format model.",
+                         "action": "Replace untrusted pickle models with safetensors equivalents.", "rollback": "N/A"}))
+    return out
 
 
 def _secrets(facts, root: Path):

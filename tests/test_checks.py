@@ -78,6 +78,22 @@ def test_bom_and_launch_in_report():
         assert "launch" in rep["scan"]
 
 
+def test_malicious_pickle_flagged():
+    with tempfile.TemporaryDirectory() as t:
+        rep, _ = h.audit(h.malicious_model(t))
+        assert h.count(rep, "MODEL-002") >= 2, "raw .pkl and zip .ckpt must both be flagged"
+        assert "MODEL-001" in h.ids(rep), "the benign pickle should scan clean and be inventoried"
+        assert rep["summary"]["grade"] == "F"
+
+
+def test_proxied_auth_downgrades_auth001():
+    with tempfile.TemporaryDirectory() as t:
+        rep, facts = h.audit(h.proxied_auth(t))
+        assert facts["proxy"]["detected"] and facts["proxy"]["auth"]
+        a = [f for f in rep["findings"] if f["check_id"] == "AUTH-001"]
+        assert a and a[0]["severity"] == "info", "AUTH-001 must downgrade when an auth proxy is detected"
+
+
 def test_exp004_loopback_probe_skipped():
     # Requires a live loopback HTTP server to probe; not available in unit tests.
     h.skip("network probe requires a running instance; covered by code review of _network_checks")

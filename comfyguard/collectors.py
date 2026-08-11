@@ -123,6 +123,7 @@ def collect(root, url=None, authorized=False, launch_file=None, launch_dir=None)
     facts["host"] = _host(comfy_root)
     facts["ioc"] = _ioc(comfy_root, facts["nodes"], facts["deps"])
     facts["firewall"] = _firewall()
+    facts["proxy"] = _proxy(comfy_root, root)
     facts["network"] = _network(url) if (url and authorized) else None
     return facts
 
@@ -526,6 +527,53 @@ def _firewall() -> dict:
     except Exception:
         pass
     return fw
+
+
+PROXY_AUTH_DIRECTIVES = ("auth_basic", "auth_request", "basicauth", "basic_auth",
+                         "forward_auth", "oauth2", "satisfy", "require valid-user",
+                         "authelia", "cf-access", "x-forwarded-user")
+
+
+def _proxy(comfy_root: Path, audit_root: Path) -> dict:
+    """Best-effort: is there a reverse proxy in front, and does it enforce auth?
+    Detection only; used to downgrade AUTH-001 to a verify note, never to clear it."""
+    out = {"detected": False, "auth": False, "source": None}
+    files = []
+
+    def gather(d: Path):
+        if not d or not d.is_dir():
+            return
+        try:
+            for pat in ("*.conf", "nginx.conf", "Caddyfile", "*.caddy", "proxy*", "default"):
+                files.extend(p for p in d.glob(pat) if p.is_file())
+            for sub in ("conf.d", "sites-enabled", "sites-available", "http.d"):
+                if (d / sub).is_dir():
+                    files.extend(p for p in (d / sub).glob("*") if p.is_file())
+        except Exception:
+            pass
+
+    for d in (comfy_root, comfy_root.parent, audit_root, audit_root.parent,
+              Path("/etc/nginx"), Path("/etc/caddy"), Path("/etc/apache2"),
+              Path("/etc/httpd"), Path("/usr/local/etc/nginx")):
+        gather(d)
+
+    seen = set()
+    for p in files:
+        if p in seen:
+            continue
+        seen.add(p)
+        text = _read(p, limit=400_000).lower()
+        if not text:
+            continue
+        proxies = ("proxy_pass" in text or "reverse_proxy" in text or "proxypass" in text)
+        hits_port = any(h in text for h in ("8188", "8189", ":3000", "8080", "8000", "comfyui"))
+        if proxies and hits_port:
+            out["detected"] = True
+            out["source"] = str(p)
+            if any(a in text for a in PROXY_AUTH_DIRECTIVES):
+                out["auth"] = True
+                break
+    return out
 
 
 def _network(url: str) -> dict:

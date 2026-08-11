@@ -151,6 +151,43 @@ def ioc_case(base):
     return root
 
 
+def _malicious_pickle_bytes():
+    # Pickling records a reference to os.system; it does NOT execute anything.
+    class _Exploit:
+        def __reduce__(self):
+            return (os.system, ("echo pwned",))
+    import pickle
+    return pickle.dumps(_Exploit())
+
+
+def malicious_model(base):
+    import io
+    import pickle
+    import zipfile
+    root = Path(base) / "malmodel"
+    _comfy_base(root)
+    _w(root, "run.sh", "python main.py --listen 127.0.0.1\n")  # loopback: isolate the model check
+    ck = root / "models" / "checkpoints"
+    ck.mkdir(parents=True, exist_ok=True)
+    (ck / "evil.pkl").write_bytes(_malicious_pickle_bytes())            # raw pickle
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:                                # torch-style zip
+        z.writestr("archive/data.pkl", _malicious_pickle_bytes())
+    (ck / "evil.ckpt").write_bytes(buf.getvalue())
+    (ck / "ok.pkl").write_bytes(pickle.dumps({"weights": [1, 2, 3]}))   # benign -> scans clean
+    return root
+
+
+def proxied_auth(base):
+    root = Path(base) / "proxied"
+    _comfy_base(root)
+    _w(root, "run.sh", "python main.py --listen 0.0.0.0\n")  # exposed bind, but behind a proxy
+    _w(root, "nginx.conf",
+       "server {\n  listen 443 ssl;\n  location / {\n    auth_basic \"restricted\";\n"
+       "    auth_basic_user_file /etc/nginx/.htpasswd;\n    proxy_pass http://127.0.0.1:8188;\n  }\n}\n")
+    return root
+
+
 def symlink_loop(base):
     root = Path(base) / "symlink"
     _comfy_base(root)
