@@ -27,12 +27,11 @@ findings; `report.json` is machine-precise, `FIXES.md` is ordered for action.
 
 ## Before you start: back up
 
-Capture a rollback point before your first change. In Phase 1, that means a plain
-backup: copy the files you will touch, and for the ComfyUI tree note the current
-git commit (`git -C <path> rev-parse HEAD`) and the installed node/pip versions.
-Keep the backup paths in your notes so any change is reversible. (A dedicated
-`comfyguard snapshot` command that captures full state is planned; until then, use
-ordinary backups.)
+Capture a rollback point before your first change. Use ComfyUI-Manager's snapshot
+feature (`comfy node save-snapshot`, or the Manager UI) to capture node and package
+state, note the core git commit (`git -C <path> rev-parse HEAD`), and copy any
+config files you will edit. Keep the backup details in your notes so any change is
+reversible. ComfyGuard does not manage snapshots itself.
 
 ## How to read a finding
 

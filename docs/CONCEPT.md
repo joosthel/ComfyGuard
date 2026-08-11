@@ -1,18 +1,17 @@
 # Concept and architecture: ComfyGuard
 
-`ComfyGuard` is a read-only security suite for ComfyUI with five commands:
-`audit` (assess and write a report), `verify` (re-assess and diff against a prior
-report to confirm fixes landed), `snapshot` (capture full instance state),
-`diff` (compare two states and report drift/tamper), and `restore` (roll back to a
-snapshot). `audit`, `verify`, `snapshot`, and `diff` change nothing on the
-instance; `restore` changes it only with the opt-in `--apply` flag. Forward fixing
-is done by a separate coding agent that reads the report, guided by the agent
-skills that ship with the tool. The command model is specified in
-[SPEC.md](SPEC.md), and snapshot/diff/restore in [SNAPSHOT.md](SNAPSHOT.md).
+`ComfyGuard` is a read-only security suite for ComfyUI. `audit` (implemented)
+assesses an installation and writes a report; `verify` (planned) re-assesses and
+diffs against a prior report to confirm fixes landed. Both change nothing on the
+instance; ComfyGuard only writes its own report artifacts. Forward fixing is done
+by a separate coding agent that reads the report, guided by the agent skills that
+ship with the tool. For a rollback point and restoring, use ComfyUI-Manager's
+built-in snapshot feature; ComfyGuard does not reimplement it. The command model
+is specified in [SPEC.md](SPEC.md).
 
-This document covers the assessment core (the read-only engine behind `audit`, and
-the fact store that `snapshot`/`diff` also render). It inspects an installation and
-its surroundings (core version, ComfyUI-Manager, custom nodes, Python dependencies,
+This document covers the assessment core (the read-only engine behind `audit`). It
+inspects an installation and its surroundings (core version, ComfyUI-Manager,
+custom nodes, Python dependencies,
 model files, workflows, secrets, and host/network posture), scores what it finds
 against a catalog of ComfyUI-specific checks, and writes a report designed to be
 read by a human and by an automated remediation agent.
@@ -61,16 +60,14 @@ optionally a reachable URL you are authorized to test), and it produces a ranked
 evidence-backed, machine-readable report plus a human summary.
 
 **It is not** a fixer, a firewall, a runtime sandbox, or an antivirus product.
-Assessment (`audit`, `verify`, `snapshot`, `diff`) never edits the deployment,
-never runs node code, and never deserializes a model file; it writes only its own
-reports and snapshots. Forward fixing is the job of a separate coding agent that
-reads the report under the guidance of the shipped agent skills. The one action
-ComfyGuard itself can take on an instance is `restore --apply`, an opt-in,
-guarded rollback to a captured snapshot, which never deletes (it quarantines). It
-does not replace ComfyUI-Manager or the Comfy Registry; it audits how they are
-configured and what they installed. The remediation contract for the consuming
-agent is in [REPORTING.md](REPORTING.md), the snapshot/restore model is in
-[SNAPSHOT.md](SNAPSHOT.md), and the skills are in `skills/`.
+Assessment never edits the deployment, never runs node code, and never
+deserializes a model file; it writes only its own report artifacts. Forward fixing
+is the job of a separate coding agent that reads the report under the guidance of
+the shipped agent skills. For a rollback point and restoring, use ComfyUI-Manager's
+built-in snapshot feature; ComfyGuard does not reimplement it. It does not replace
+ComfyUI-Manager or the Comfy Registry; it audits how they are configured and what
+they installed. The remediation contract for the consuming agent is in
+[REPORTING.md](REPORTING.md), and the skills are in `skills/`.
 
 **Intended use** is authorized self-assessment: an operator evaluating a
 deployment they control, or a reviewer with permission, ideally before the
@@ -256,21 +253,6 @@ the highest-confidence critical findings first, so one confirmed
 low-severity style issues exist. See [REPORTING.md](REPORTING.md) for the grade
 model.
 
-### 4.4 Snapshots and drift
-
-The same fact store that `audit` renders as findings, `snapshot` renders as a
-state manifest. It is a second renderer, not a second engine: the collectors and
-facts are identical, and the only extra collection cost is hashing (per-node
-source files by default, models only under `--hash-models`). `diff` is a
-comparison lens over two such manifests (or one manifest versus live), producing
-DRIFT findings that reuse the finding schema, grade, and outputs unchanged, so a
-compromise indicator (a node file changed without its commit changing) grades the
-same F as a known-malicious node. `restore` renders a manifest back into a
-rollback: read-only by default (a plan plus a script that delegates to
-`comfy node restore-snapshot`), and mutating only with the opt-in `--apply`. This
-whole layer is specified in [SNAPSHOT.md](SNAPSHOT.md); it is what makes agent
-fixes reversible.
-
 ## 5. Scan phases (what a run does, in order)
 
 1. **Discover.** Find the ComfyUI root and Manager, resolve versions and commit,
@@ -313,10 +295,10 @@ risky actions are gated:
 4. **Handle secrets.** Move secrets out of the shared process environment into
    mounted files or a secrets manager, and flag credentials that need rotation
    by their owner.
-5. **Verify.** Run `comfyguard verify` to re-assess and diff against the prior
-   report by finding fingerprint, so the agent (and the operator) can confirm each
-   finding is actually resolved and nothing regressed. `verify` is read-only too;
-   it only writes a diff report.
+5. **Verify.** Re-run `comfyguard audit` and diff against the prior report by
+   finding fingerprint, so the agent (and the operator) can confirm each finding is
+   actually resolved and nothing regressed. (The planned `comfyguard verify` will
+   automate this diff; it is read-only too.)
 
 Each action in the plan carries an `auto` / `review-required` / `human-only`
 gate, a precise target (file and location, or config key), the proposed change,
@@ -345,10 +327,9 @@ workflow and PNG-metadata analysis, and a maintained map of known-vulnerable
 node versions.
 
 **Phase 4, integrations and continuous use.** CI action that uploads SARIF,
-scheduled re-scans with drift diffing, and an optional local dashboard. Possible
-later: a community, machine-readable advisory feed for custom nodes, which does
-not exist today and is a real ecosystem gap (see [RESEARCH.md](RESEARCH.md)
-section 5).
+scheduled re-scans, and an optional local dashboard. Possible later: a community,
+machine-readable advisory feed for custom nodes, which does not exist today and is
+a real ecosystem gap (see [RESEARCH.md](RESEARCH.md) section 5).
 
 **Explicitly later or out of scope for now:** dynamic and behavioral analysis
 (running a node in a sandbox to observe it) is powerful but breaks the "never

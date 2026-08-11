@@ -25,9 +25,10 @@ before you spend time on a pull request.
 These are the constraints that define the tool. A change that breaks one of them
 will not be merged.
 
-- **Read-only by default.** `audit`, `verify`, `snapshot`, and `diff` never change
-  the scanned instance. Only `restore --apply` may mutate it, and it never
-  deletes (it quarantines). See [docs/CONCEPT.md](docs/CONCEPT.md).
+- **Strictly read-only.** Every command writes only ComfyGuard's own report
+  artifacts and never changes the scanned instance. For a rollback point and
+  restoring, use ComfyUI-Manager's snapshot feature. See
+  [docs/CONCEPT.md](docs/CONCEPT.md).
 - **Never execute untrusted code or data.** Custom nodes are parsed, not run. Model
   files are inspected at the byte and opcode level, never deserialized.
 - **Offline-first.** A full run must work air-gapped. No data from a scanned
@@ -41,7 +42,7 @@ will not be merged.
 ## Proposing a new check
 
 1. Pick a domain and an unused ID in that family (for example `EXP-###`, `NODE-###`,
-   `MODEL-###`, `DRIFT-###`). The families are listed in
+   `MODEL-###`, `DEP-###`). The families are listed in
    [docs/CHECKS.md](docs/CHECKS.md).
 2. Describe: what it detects, the detection method (a fact the collectors can
    gather), a default severity and confidence, the remediation class, and a

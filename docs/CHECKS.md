@@ -52,8 +52,9 @@ exposed to a company network or the internet until they pass. As a shorthand: no
 reachable instance without authentication (EXP, AUTH, API-003, API-008), no
 known-malicious node or active-compromise indicator (PATCH-007, IOC), no
 unauthenticated-RCE core or Manager version (PATCH-002, PATCH-005), no container
-escape surface (HOST-002, HOST-003, HOST-014), and no missing rollback point
-(snapshot a baseline first). The full gate list is in the coverage summary.
+escape surface (HOST-002, HOST-003, HOST-014), and a rollback point captured
+first (ComfyUI-Manager's snapshot feature). The full gate list is in the coverage
+summary.
 
 This urgency model is why the tool aims to be comprehensive: on a production
 deployment you want the whole surface checked, then the results triaged by what
@@ -275,7 +276,7 @@ local or agent access, not a remote probe.
 | HOST-007 | Manager configured unsafely for a networked instance: `security_level` weak or normal-, or `allow_pip_install`/`allow_git_url_install` set to true. Also recommend `--disable-manager-ui` on an exposed server (keeps scheduled tasks, removes the mutating UI and endpoints). | High | config |
 | HOST-008 | GPU access granted via `--privileged` instead of the scoped NVIDIA Container Toolkit device mechanism. Overlaps HOST-002. | Medium | config |
 | HOST-009 | No outbound egress restriction (no default-deny), so a compromised node can freely exfiltrate or fetch payloads. Configuration and awareness. | Medium | manual |
-| HOST-010 | ComfyUI-Manager config on the legacy `user/default/ComfyUI-Manager/` path (pre-`__manager` migration, Manager below 3.38 or core below the System User Protection API): the config is reachable through the core web API and can be tampered with remotely. Cross-references PATCH-003. Fed by the snapshot's `manager_config.config_path_is_legacy`. | High | upgrade |
+| HOST-010 | ComfyUI-Manager config on the legacy `user/default/ComfyUI-Manager/` path (pre-`__manager` migration, Manager below 3.38 or core below the System User Protection API): the config is reachable through the core web API and can be tampered with remotely. Cross-references PATCH-003. Detected from the Manager config path. | High | upgrade |
 | HOST-011 | Weak container isolation: dangerous Linux capabilities kept (for example `CAP_SYS_ADMIN`) instead of dropped, no seccomp or AppArmor profile, no `no-new-privileges`, or a writable root filesystem. Each turns a node-level RCE into a stronger foothold. | High | config |
 | HOST-012 | Base image not pinned: an image tag like `latest` with no digest, so the running image can change silently, and no image scanning or provenance. | Medium | config |
 | HOST-013 | No CPU, memory, or GPU resource limits (cgroup or Kubernetes). A single workflow can exhaust the host, and an abused instance can mine at full GPU. Overlaps DOS-003. | Medium to High | config |
@@ -373,7 +374,7 @@ References: `nodes.py` (`SaveImage` metadata); `/view` and `/internal/files`
 
 ## IOC: active-compromise indicators
 
-Unlike DRIFT, which needs a baseline, these scan the host and install for
+These scan the host and install for
 signatures of an instance that is already compromised, drawn from the documented
 ComfyUI incidents and refreshed from the threat feed. Any hit is urgent and a
 human decision: take the instance offline and investigate.
@@ -403,39 +404,12 @@ so detection must come from outside the application.
 | OPS-001 | No external access logging or audit trail. Core logs are in-memory and lost on restart, and nothing records who queued what. Recommend reverse-proxy access logs and centralized logging. | Medium | manual |
 | OPS-002 | No outbound egress monitoring or alerting for the C2 and mining-pool indicators in the IOC family. | Medium | manual |
 | OPS-003 | No host integrity monitoring or endpoint detection watching for the IOC signatures (`ld.so.preload`, immutable binaries, rogue cron, `/dev/shm` payloads). | Medium | manual |
-| OPS-004 | No backup or recovery for models, workflows, and config. This is business continuity and the clean-restore path after a compromise; a ComfyGuard baseline snapshot is the minimum. | Medium | manual |
+| OPS-004 | No backup or recovery for models, workflows, and config. This is business continuity and the clean-restore path after a compromise; ComfyUI-Manager's snapshot feature is the minimum. | Medium | manual |
 | OPS-005 | No incident-response plan or defined owner for a networked or company deployment. A readiness decision for the operator. | Info | manual |
 
 References: `app/logger.py` (in-memory logs, default capacity 300); `/internal/logs`
-(unauthenticated); the ComfyGuard snapshot as a baseline.
+(unauthenticated); ComfyUI-Manager's snapshot feature as a baseline.
 
----
-
-## DRIFT: state change and tamper detection
-
-Emitted by `comfyguard diff` when it compares two snapshots, or a snapshot
-against the live instance. DRIFT findings use the same finding schema, grade, and
-outputs as every other check (see [SNAPSHOT.md](SNAPSHOT.md) and
-[REPORTING.md](REPORTING.md)). Two sub-classes: security indicators (tamper and
-compromise) and stability drift (what changed since it last worked).
-
-| ID | Detects and how | Severity | Fix |
-|---|---|---|---|
-| DRIFT-001 | A custom node's source file changed on disk but its git commit is unchanged. Deterministic content should hash identically for a given commit, so this is a tamper indicator, not an update. | Critical to High | quarantine |
-| DRIFT-002 | A custom node appeared that was absent in the baseline. The new node is routed through the NODE static-analysis and PATCH known-malicious checks automatically. | High | manual to quarantine |
-| DRIFT-003 | A custom node present in the baseline was removed. | Low to Medium | context |
-| DRIFT-004 | A node's git commit changed (an update); escalate if the new commit is unknown or unverified. | Medium | context to upgrade |
-| DRIFT-005 | A model file's sha256 changed for the same path (substitution). Requires `--hash-models`; otherwise a same-size swap is not detected. | High | quarantine |
-| DRIFT-006 | A new model file appeared; escalate if it is a pickle format (cross-references MODEL-002). | Low to Medium | context |
-| DRIFT-007 | A dependency version changed; escalate to Critical if the new pin matches a known-bad IOC (cross-references DEP-005, PATCH-007). | Medium to Critical | upgrade |
-| DRIFT-008 | Manager config downgrade: `security_level` lowered, `allow_pip_install`/`allow_git_url_install` flipped to true, or the Manager UI re-enabled since the baseline. | High | config |
-| DRIFT-009 | Exposure regression: `--listen` widened to non-loopback, `--enable-cors-header` added, TLS flags removed, or a `--disable-api-nodes`/`--disable-metadata`/`--disable-all-custom-nodes` dropped. | High to Critical | config |
-| DRIFT-010 | Host regression: process or container user changed to root, `--privileged` added, or the Docker socket mounted since the baseline. | High to Critical | config |
-| DRIFT-011 | Core ComfyUI version or commit changed; cross-references PATCH to report if it moved into or out of a vulnerable range. | Medium | context to upgrade |
-| DRIFT-012 | Baseline integrity: the snapshot fingerprint or signature will not validate, or its `schema_version` mismatches, so the diff cannot be trusted. | Info to Medium | manual |
-
-References: [SNAPSHOT.md](SNAPSHOT.md); the existing NODE, MODEL, DEP, PATCH, EXP,
-and HOST families that DRIFT cross-references rather than duplicates.
 
 ---
 
@@ -461,8 +435,6 @@ to concrete, testable checks:
 - Data protection and privacy for company and GDPR deployments: DATA.
 - Whether the instance is already compromised (the 2026 botnet IOCs): IOC.
 - Production monitoring, logging, and incident readiness: OPS.
-- Post-baseline compromise and instability (tampered node, planted node, config
-  downgrade, exposure regression): DRIFT, via `comfyguard diff`.
 
 ## Pre-exposure gate (blocker checks)
 
@@ -476,7 +448,7 @@ internet, and should be fixed immediately if it is already exposed:
 - Known-malicious node or active-compromise indicator: PATCH-007, any IOC finding.
 - Container or host escape and lateral-movement surface: HOST-002, HOST-003,
   HOST-014.
-- No rollback point captured (take a `comfyguard snapshot` baseline first).
+- No rollback point captured (take a ComfyUI-Manager snapshot first).
 
 The ruleset is versioned. New CVEs and IOCs are added as advisory and incident
 data, so the catalog grows without changing the engine.

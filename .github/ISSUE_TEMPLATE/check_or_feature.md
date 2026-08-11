@@ -12,7 +12,7 @@ Describe the ComfyUI security issue or the feature.
 
 **Proposed check (if a detection)**
 
-- Domain and proposed ID (for example `EXP-###`, `NODE-###`, `DRIFT-###`):
+- Domain and proposed ID (for example `EXP-###`, `NODE-###`, `MODEL-###`):
 - What it detects:
 - How to detect it (a fact a collector can gather):
 - Default severity and confidence:

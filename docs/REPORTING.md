@@ -18,26 +18,14 @@ The core artifacts from an `audit`:
 4. **Human report** (`report.md` or `.html`): a readable summary that leads with
    the grade and the top findings.
 
-`comfyguard verify` produces a diff-of-findings report that compares a fresh scan
-against a prior one by finding fingerprint. It is read-only too.
+`comfyguard verify` (planned) will produce a diff-of-findings report that compares
+a fresh scan against a prior one by finding fingerprint. It is read-only too. Until
+it ships, re-run `audit` and diff the two `report.json` files by fingerprint.
 
-The `snapshot`, `diff`, and `restore` commands add three more artifacts, all
-sharing the same finding schema and grade where they carry findings (see
-[SNAPSHOT.md](SNAPSHOT.md)):
-
-5. **Snapshot** (`snapshot.json`): a full state manifest, plus a byte-compatible
-   ComfyUI-Manager copy. Written by `snapshot`; read-only.
-6. **Drift report** (`diff.json` + `diff.md`): what changed between two states, as
-   DRIFT findings that feed the same grade and SARIF. Written by `diff`; read-only.
-7. **Restore plan** (`RESTORE.md` + `restore.sh` + a Manager-format snapshot):
-   an ordered, gated rollback. Written by `restore`; read-only unless `--apply` is
-   passed, the one command that mutates an instance.
-
-All of these derive from the same findings and facts, so they never disagree. The
-reports and snapshots are versioned by a `ruleset_version` and a `schema_version`
-so an artifact stays interpretable as the tool evolves. DRIFT findings from `diff`
-use the exact finding object below, so they render into `report.sarif` and the
-grade with no special handling.
+All artifacts derive from the same findings and facts, so they never disagree. The
+reports are versioned by a `ruleset_version` and a `schema_version` so an artifact
+stays interpretable as the tool evolves. For a rollback point and restoring, use
+ComfyUI-Manager's built-in snapshot feature; ComfyGuard does not reimplement it.
 
 ## 1. The finding object
 
@@ -84,11 +72,8 @@ Key design points:
 
 - **`fingerprint`** is a stable hash of the check, the normalized location, and
   the matched pattern. It lets two scans of the same deployment be diffed to see
-  what was fixed, what regressed, and what is new. It is how the verify step in
-  the remediation plan confirms a finding is actually resolved. This per-finding
-  fingerprint is distinct from a snapshot's whole-snapshot `fingerprint` (a hash
-  over the canonical state, used by `diff` to detect a poisoned or mismatched
-  baseline, DRIFT-012).
+  what was fixed, what regressed, and what is new. It is how a re-scan confirms a
+  finding is actually resolved.
 - **`severity` and `confidence` are separate.** Severity is the impact if real;
   confidence is how sure the scanner is that it is real. A consumer can filter on
   either. The deployment grade (section 3) weights them together.
@@ -170,8 +155,9 @@ order can either miss the highest risk or break the instance:
    before a possibly-disruptive upgrade.
 4. **Secrets**: relocate secrets out of the shared environment; flag credentials
    for rotation by their owner.
-5. **Verify**: run `comfyguard verify` to diff by fingerprint and confirm each
-   finding is resolved and nothing regressed.
+5. **Verify**: re-run `comfyguard audit` and diff by fingerprint to confirm each
+   finding is resolved and nothing regressed. (`comfyguard verify` will automate
+   this diff once it ships.)
 
 ### 4.2 Action shape
 

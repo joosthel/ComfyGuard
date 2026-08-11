@@ -214,67 +214,6 @@ checks:
         id: CVE-2025-67303
         url: https://xlab.tencent.com/en/2026/01/06/xlab-26-001/
 
-  # ---- DRIFT family (emitted by `comfyguard diff`) ----
-
-  - id: DRIFT-001
-    title: Custom node file changed but git commit unchanged (tamper)
-    category: drift
-    severity: critical
-    confidence: high
-    remediation:
-      class: quarantine
-      gate: review-required
-    detector:
-      collector: [node]
-      inputs: [baseline_snapshot, current]
-      logic: >
-        node.tree_hash != baseline.node.tree_hash
-        AND node.commit == baseline.node.commit
-      note: Deterministic content should hash identically for a given commit; a mismatch is out-of-band modification.
-    references:
-      - type: doc
-        url: docs/SNAPSHOT.md
-
-  - id: DRIFT-008
-    title: ComfyUI-Manager security downgraded since baseline
-    category: drift
-    severity: high
-    confidence: high
-    remediation:
-      class: config
-      gate: review-required
-    detector:
-      collector: [manager]
-      inputs: [baseline_snapshot, current]
-      logic: >
-        security_level_lowered(baseline, current) OR
-        flag_flipped_true(baseline, current, "allow_pip_install") OR
-        flag_flipped_true(baseline, current, "allow_git_url_install") OR
-        manager_ui_reenabled(baseline, current)
-    references:
-      - type: docs
-        url: https://docs.comfy.org/manager/configuration
-
-  - id: DRIFT-009
-    title: Exposure regression since baseline
-    category: drift
-    severity: high
-    confidence: high
-    remediation:
-      class: config
-      gate: review-required
-    detector:
-      collector: [install, network]
-      inputs: [baseline_snapshot, current]
-      logic: >
-        listen_widened_to_nonloopback(baseline, current) OR
-        cors_header_added(baseline, current) OR
-        tls_removed(baseline, current) OR
-        disable_flag_dropped(baseline, current, ["--disable-api-nodes", "--disable-metadata", "--disable-all-custom-nodes"])
-    references:
-      - type: doc
-        url: docs/CHECKS.md
-
   # ---- Deployment / production families (examples) ----
 
   - id: API-008
@@ -421,8 +360,8 @@ checks:
       gate: review-required
     detector:
       collector: [host]
-      logic: no_backup_detected AND no_baseline_snapshot
-      note: A ComfyGuard baseline snapshot is the minimum clean-restore path after a compromise.
+      logic: no_backup_detected AND no_manager_snapshot
+      note: A ComfyUI-Manager snapshot plus recorded core commit is the minimum clean-restore path after a compromise.
     references:
       - type: doc
-        url: docs/SNAPSHOT.md
+        url: https://github.com/ltdrdata/ComfyUI-Manager

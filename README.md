@@ -7,21 +7,21 @@ Read-only security evaluation for ComfyUI, with a report your coding agent can a
 ![Status: Phase 1 (audit)](https://img.shields.io/badge/status-Phase%201%20audit-0057ff.svg)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-1f9d55.svg)](CONTRIBUTING.md)
 
-ComfyGuard evaluates an existing ComfyUI installation, writes a report, and can
-capture and compare full-state snapshots. The report is the basis a developer's
-coding agent works from to fix the problems, guided by the agent skills that ship
-with the tool. It is built for instances that run on a company or local network,
-where the platform hands the security boundary to whoever runs the deployment.
+ComfyGuard evaluates an existing ComfyUI installation and writes a report. The
+report is the basis a developer's coding agent works from to fix the problems,
+guided by the agent skills that ship with the tool. It is built for instances that
+run on a company or local network, where the platform hands the security boundary
+to whoever runs the deployment.
 
-Assessment is read-only: `audit`, `verify`, `snapshot`, and `diff` change nothing
-on the instance. The one exception is `restore --apply`, an opt-in, guarded
-rollback to a captured snapshot.
+ComfyGuard is read-only: it changes nothing on the instance. For capturing a
+rollback point and restoring, use ComfyUI-Manager's built-in snapshot feature;
+ComfyGuard does not reimplement it.
 
 **Status:** Phase 1 is implemented. The `comfyguard audit` command is a working,
 dependency-free CLI that read-only scans an install and writes `report.json`,
-`report.md`, and an agent-ready `FIXES.md`. `snapshot`, `diff`, and `restore` are
-specified (see [docs/SNAPSHOT.md](docs/SNAPSHOT.md)) and are stubbed in the CLI
-until a later phase. The repository also holds the concept, threat research, check
+`report.md`, and an agent-ready `FIXES.md`. A `verify` command (re-assess and diff
+the report) is planned and stubbed. The repository also holds the concept, threat
+research, check
 catalog, reporting contract, agent skills, and worked examples.
 
 ## Install and run
@@ -69,34 +69,22 @@ disclosed and patched. The evidence base is in [docs/RESEARCH.md](docs/RESEARCH.
 
 ## How it works
 
-ComfyGuard assesses; a coding agent fixes. Five commands, four of them strictly
-read-only:
+ComfyGuard assesses; a coding agent fixes. It is read-only throughout.
 
 - **`comfyguard audit <path>`** Read-only scan across core and versions, exposure
   and access, custom nodes, dependencies, and model files, plus secrets and host
   checks. Produces ranked findings, a single A-to-F grade, and a remediation plan.
   Safe to run on a live instance.
-- **`comfyguard verify <path>`** Re-assesses and diffs against a prior report by
-  fingerprint, so you can confirm the agent's fixes landed and nothing regressed.
-- **`comfyguard snapshot <path>`** Captures the full instance state (versions,
-  node commits, pip freeze, launch flags, Manager config, model inventory, and
-  per-node file hashes) into one timestamped JSON, restore-compatible with
-  ComfyUI-Manager.
-- **`comfyguard diff <a> <b>`** Compares two snapshots, or a snapshot against
-  live, and reports what changed: a tampered or planted node, a config downgrade,
-  or an exposure regression (a compromise indicator), and version changes (the
-  "what broke since it last worked" signal).
-- **`comfyguard restore <snapshot>`** Rolls back to a snapshot. Read-only by
-  default (it writes a plan and a script); the one command that mutates the
-  instance, only with `--apply`, and even then it never deletes.
+- **`comfyguard verify <path>`** (planned) Re-assess and diff against a prior
+  report by fingerprint, to confirm the agent's fixes landed and nothing
+  regressed. Until it ships, re-run `audit` and diff the two reports.
 
-Snapshot before an agent touches anything, and you have a rollback if a fix
-breaks. The agent skills in [skills/](skills/) teach Claude Code or any coding
-agent how to read the report, apply fixes under clear gates, snapshot first, and
-verify. A curated, versioned ComfyUI threat feed (known CVEs and malicious-node
-indicators) drives the version and known-bad checks and ships bundled so the tool
-works offline. See [docs/SPEC.md](docs/SPEC.md) and
-[docs/SNAPSHOT.md](docs/SNAPSHOT.md) for the full specification.
+Before an agent touches anything, capture a rollback point with ComfyUI-Manager's
+snapshot feature. The agent skills in [skills/](skills/) teach Claude Code or any
+coding agent how to read the report and apply fixes under clear gates. A curated,
+versioned ComfyUI threat feed (known CVEs and malicious-node indicators) drives the
+version and known-bad checks and ships bundled so the tool works offline. See
+[docs/SPEC.md](docs/SPEC.md) for the full specification.
 
 ## What it evaluates
 
@@ -155,12 +143,11 @@ The standing baseline for agents is in [AGENTS.md](AGENTS.md).
 
 ## Design principles
 
-Read-only by default (only `restore --apply` ever changes the instance, and it
-never deletes). Never execute untrusted code or data. Offline-first. No
-installation into ComfyUI (it inspects from the outside). ComfyUI-aware, not a
-generic linter. Rank, do not just flag. Layered detection. Standards-based,
-agent-ready output. Deterministic and explainable. The reasoning is in
-[docs/CONCEPT.md](docs/CONCEPT.md).
+Strictly read-only; it changes nothing on the instance. Never execute untrusted
+code or data. Offline-first. No installation into ComfyUI (it inspects from the
+outside). ComfyUI-aware, not a generic linter. Rank, do not just flag. Layered
+detection. Standards-based, agent-ready output. Deterministic and explainable. The
+reasoning is in [docs/CONCEPT.md](docs/CONCEPT.md).
 
 ## Output
 
@@ -172,18 +159,10 @@ Phase 1 (`audit`) writes:
 - `FIXES.md`: an ordered, gated remediation plan for a coding agent. ComfyGuard
   writes it; it never applies it.
 
-Planned for later phases:
-
-- `report.sarif` (phase 2): SARIF 2.1.0 for GitHub code scanning.
-- `snapshot.json`: a full state manifest (from `snapshot`), restore-compatible
-  with ComfyUI-Manager.
-- `diff.json` / `diff.md`: what changed between two states, as DRIFT findings
-  (from `diff`).
-- `RESTORE.md` / `restore.sh`: a gated rollback plan and script (from `restore`).
+Planned: `report.sarif` (SARIF 2.1.0 for GitHub code scanning).
 
 The reporting and remediation contract is in [docs/REPORTING.md](docs/REPORTING.md),
-the snapshot and drift format is in [docs/SNAPSHOT.md](docs/SNAPSHOT.md), with
-worked examples in [examples/](examples/).
+with worked examples in [examples/](examples/).
 
 ## Command reference
 
@@ -194,23 +173,18 @@ comfyguard audit /path/to/ComfyUI --url http://127.0.0.1:8188 --authorized
 
 # Hand report.json and FIXES.md to a coding agent (Claude Code or similar) with
 # the skills in skills/, then let it work the plan under the gates, with an
-# operator confirming every review-required and human-only change.
-
-# Planned (specified in docs/SNAPSHOT.md, stubbed in the CLI for now):
-comfyguard snapshot /path/to/ComfyUI --out ./baseline
-comfyguard diff --against ./baseline/snapshot.json /path/to/ComfyUI
-comfyguard restore ./baseline/snapshot.json --target /path/to/ComfyUI
+# operator confirming every review-required and human-only change. Capture a
+# rollback point first with ComfyUI-Manager's snapshot feature.
 ```
 
 ## Roadmap
 
 1. Assess: `audit` across the core layers, the threat feed, the report, and the
-   agent skills.
-2. Verify, snapshot, and breadth: `verify` fingerprint diffing; `snapshot` and
-   `diff` with the DRIFT family; SARIF; the ML-BOM; secrets and host checks.
-3. Restore and freshness: `restore` (plan plus opt-in `--apply`);
-   signature-verified feed refresh; YARA family rules; secret scanning; workflow
-   analysis.
+   agent skills (done).
+2. Verify and breadth: `verify` (re-assess and diff the report by fingerprint),
+   SARIF output, and broader offline check coverage.
+3. Freshness: signature-verified feed refresh, YARA family rules, secret scanning,
+   and workflow analysis.
 4. Continuous use: a CI action, scheduled re-scans, and an optional local
    dashboard.
 
@@ -226,20 +200,16 @@ least-privilege user, egress filtering, and sandboxing.
 
 - [docs/SPEC.md](docs/SPEC.md): the consolidated specification.
 - [docs/CONCEPT.md](docs/CONCEPT.md): problem, principles, architecture, roadmap.
-- [docs/CHECKS.md](docs/CHECKS.md): the full check catalog, including the DRIFT
-  family.
+- [docs/CHECKS.md](docs/CHECKS.md): the full check catalog.
 - [docs/REPORTING.md](docs/REPORTING.md): output formats and the agent remediation
   contract.
-- [docs/SNAPSHOT.md](docs/SNAPSHOT.md): the snapshot format, diff/drift detection,
-  and the restore model.
 - [docs/RESEARCH.md](docs/RESEARCH.md): the threat landscape, prior-art survey, and
   current ComfyUI security posture.
 - [AGENTS.md](AGENTS.md): the standing security baseline for agents.
-- [skills/](skills/): agent skills for auditing, remediating, and snapshot/restore.
+- [skills/](skills/): agent skills for auditing and remediating.
 - [spec/checks.example.yaml](spec/checks.example.yaml): the machine-readable
-  ruleset format. [spec/snapshot.schema.json](spec/snapshot.schema.json): the
-  snapshot JSON Schema.
-- [examples/](examples/): sample report, snapshot, diff, and restore artifacts.
+  ruleset format.
+- [examples/](examples/): a sample report and remediation plan.
 
 ## Responsible use
 
@@ -247,7 +217,7 @@ ComfyGuard is a defensive self-assessment tool. Use it only against ComfyUI
 deployments you operate or are authorized to test. The static and host checks run
 on a local installation; the network probe is opt-in, defaults to localhost, and
 requires you to assert authorization for any non-loopback target. It does not
-exploit, and it is read-only apart from the opt-in `restore --apply`.
+exploit, and it is strictly read-only.
 
 ## Contributing
 
@@ -265,8 +235,8 @@ go to their own maintainers.
 ## Acknowledgements
 
 ComfyGuard builds on the work of the ComfyUI project and ComfyUI-Manager (whose
-snapshot format it stays compatible with), and on the ideas of established
-open-source security tools, including Bandit and Semgrep, modelscan and Fickling,
+snapshot feature it recommends for backup and rollback), and on the ideas of
+established open-source security tools, including Bandit and Semgrep, modelscan and Fickling,
 and the SARIF and CycloneDX standards. It runs fully offline; for live dependency
 CVEs, pair it with `pip-audit` or OSV, which ComfyGuard deliberately does not call.
 The threat research credits the vendors and researchers cited in

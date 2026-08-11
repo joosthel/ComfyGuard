@@ -14,8 +14,8 @@ A short description, and the issue it addresses (for example `Closes #12`).
 
 **Checklist**
 
-- [ ] It preserves the read-only principle (`audit`/`verify`/`snapshot`/`diff`
-      change nothing; only `restore --apply` mutates, and never deletes).
+- [ ] It preserves the read-only principle (every command changes nothing on the
+      scanned instance and writes only ComfyGuard's own report artifacts).
 - [ ] It does not execute untrusted code or deserialize model files.
 - [ ] Docs and examples are updated in the same PR.
 - [ ] New checks include a default severity, confidence, remediation class, and a

@@ -12,10 +12,7 @@ knows what to do.
   next.
 - **[comfyguard-remediation](comfyguard-remediation/SKILL.md)**: read a report
   (`report.json` and `FIXES.md`) and fix the findings safely, under the report's
-  gates, then verify. This is the core skill.
-- **[comfyguard-restore](comfyguard-restore/SKILL.md)**: snapshot before making
-  changes, detect drift or tampering with `diff`, and roll back to a known-good
-  snapshot if a fix breaks the instance.
+  gates, then re-audit to confirm. This is the core skill.
 
 ## Using them
 

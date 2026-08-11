@@ -166,7 +166,8 @@ def render_fixes(report: dict) -> str:
     lines.append(f"Grade **{report['summary']['grade']}**. "
                  "ComfyGuard produced this plan and changed nothing. Work it under the gates: "
                  "`auto` may be applied directly, `review-required` needs operator confirmation, "
-                 "`human-only` is never applied by an agent. Snapshot or back up before any change, and "
+                 "`human-only` is never applied by an agent. Back up before any change "
+                 "(ComfyUI-Manager's snapshot feature is a good rollback point), and "
                  "test in a safe environment first, because changes can break production pipelines.")
     lines.append("")
     findings = report["findings"]

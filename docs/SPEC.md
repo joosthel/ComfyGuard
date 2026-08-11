@@ -1,16 +1,15 @@
 # ComfyGuard: specification
 
 ComfyGuard is a read-only security suite for ComfyUI. It evaluates an existing
-installation, writes a report, and can capture and compare full-state snapshots.
-The report is the basis a developer's coding agent works from to fix the problems,
-guided by the agent skills that ship with the tool. It is built for instances that
-run on a company or local network, where security becomes the operator's
-responsibility.
+installation and writes a report. The report is the basis a developer's coding
+agent works from to fix the problems, guided by the agent skills that ship with
+the tool. It is built for instances that run on a company or local network, where
+security becomes the operator's responsibility.
 
-`audit`, `verify`, `snapshot`, and `diff` are strictly read-only and change
-nothing on the instance. The single exception is `restore --apply`, an opt-in,
-guarded rollback to a captured snapshot. That is the only way any command mutates
-an instance.
+Every command is strictly read-only and changes nothing on the instance.
+ComfyGuard only writes its own report artifacts. For a rollback point and
+restoring, use ComfyUI-Manager's built-in snapshot feature; ComfyGuard does not
+reimplement it.
 
 This is the consolidated specification. The deeper architecture is in
 [CONCEPT.md](CONCEPT.md), the full check catalog in [CHECKS.md](CHECKS.md), the
@@ -39,17 +38,16 @@ not replace it.
 
 ## 2. What it is: a read-only advisor
 
-ComfyGuard reads, evaluates, and writes reports and snapshots. It does not touch
-the instance except through the one opt-in `restore --apply` command. The actual
-fixing is done by a separate coding agent that the operator runs, using the skills
-in `skills/`. This split is deliberate: the tool that assesses a production server
-should not also mutate it, and keeping assessment read-only is what makes it safe
-to run anywhere.
+ComfyGuard reads, evaluates, and writes a report. It never touches the instance.
+The actual fixing is done by a separate coding agent that the operator runs, using
+the skills in `skills/`. This split is deliberate: the tool that assesses a
+production server should not also mutate it, and keeping it read-only is what makes
+it safe to run anywhere. For a rollback point and restoring, use ComfyUI-Manager's
+built-in snapshot feature; ComfyGuard does not reimplement it.
 
-One Python CLI, run against a ComfyUI install path, with five commands. `audit`
-and `verify` assess and confirm; `snapshot` and `diff` capture and compare state;
-`restore` rolls back (read-only by default, mutating only with `--apply`). The
-snapshot, diff, and restore design is specified in [SNAPSHOT.md](SNAPSHOT.md).
+One Python CLI, run against a ComfyUI install path. `audit` (implemented) assesses
+and writes the report; `verify` (planned) re-assesses and diffs the report to
+confirm fixes. Both are read-only.
 
 ### `comfyguard audit`
 
@@ -73,47 +71,16 @@ plus two extensions and writes the report:
 7. **Host and container** (extension). Root execution, privileged containers,
    Docker socket mounts, and directory permissions.
 
-Output: `report.json`, `report.md` (human, leads with an A-to-F grade),
-`report.sarif`, and `FIXES.md` (the agent remediation plan). These are the only
-files it writes.
+Output: `report.json`, `report.md` (human, leads with an A-to-F grade), and
+`FIXES.md` (the agent remediation plan). These are the only files it writes.
+`report.sarif` is planned.
 
-### `comfyguard verify`
+### `comfyguard verify` (planned)
 
 Read-only. Re-assesses the installation and diffs the result against a prior
-report by finding fingerprint, so the operator and the coding agent can confirm
-that fixes actually landed and nothing regressed. It writes only a diff report.
-This closes the loop: audit, then the agent fixes, then verify.
-
-### `comfyguard snapshot`
-
-Read-only. Captures the full instance state (core version and commit, custom nodes
-with git commits, resolved pip freeze, launch flags, Manager config and security
-level, TLS/proxy, model inventory, host facts, and per-node source-file hashes for
-tamper detection) into a single timestamped JSON. The format supersets the
-ComfyUI-Manager snapshot by embedding a byte-compatible copy, so it stays
-restore-compatible with `comfy node restore-snapshot`. Model hashing is
-metadata-only by default (`--hash-models` opts into sha256). Full schema in
-[SNAPSHOT.md](SNAPSHOT.md).
-
-### `comfyguard diff`
-
-Read-only. Compares two snapshots, or a snapshot against the live instance, and
-reports what changed as DRIFT findings (see [CHECKS.md](CHECKS.md)). It answers
-both "what was modified out-of-band" (a tampered or planted node, a config
-downgrade, an exposure regression: a compromise indicator) and "what changed since
-it last worked" (a version or dependency change: a stability signal). DRIFT
-findings feed the same grade and outputs as every other check.
-
-### `comfyguard restore`
-
-Read-only by default: it writes a rollback plan (`RESTORE.md`), a runnable
-`restore.sh`, and a Manager-format snapshot, and changes nothing. The script
-delegates node and pip rollback to `comfy node restore-snapshot` and compensates
-for that path's two gaps (it re-checks out the core commit and reinstalls
-torch/nvidia). With `--apply`, ComfyGuard performs the rollback itself; this is
-the single command that mutates an instance, and it is guarded (snapshot first,
-never delete, quarantine instead, refuse a serving instance without `--force`,
-honor gates, audit-log every action). Full model in [SNAPSHOT.md](SNAPSHOT.md).
+report by finding fingerprint, to confirm fixes landed and nothing regressed.
+Until it ships, re-run `audit` and diff the two reports (findings carry stable
+fingerprints).
 
 ## 3. How fixing happens: the report plus agent skills
 
@@ -129,7 +96,7 @@ to read the report and act on it safely:
   agent must honor them: apply only `auto` directly, confirm `review-required`
   with the operator, and never apply `human-only` (delete, rotate a credential,
   redeploy).
-- **The loop.** Make one change, run `comfyguard verify`, confirm the finding
+- **The loop.** Make one change, re-run `comfyguard audit`, confirm the finding
   cleared by fingerprint, then move on.
 
 The standing baseline an agent should enforce is in [AGENTS.md](../AGENTS.md); the
@@ -146,11 +113,9 @@ that keeps the suite useful as the ecosystem changes, without touching the engin
 
 ## 5. Design principles
 
-1. Read-only by default. `audit`, `verify`, `snapshot`, and `diff` write only
-   their own output artifacts (reports and snapshots) and never edit, install,
-   remove, or restart anything on the instance. The one exception is
-   `restore --apply`, an opt-in, guarded rollback, and even it never deletes (it
-   quarantines).
+1. Strictly read-only. Every command writes only its own report artifacts and
+   never edits, installs, removes, or restarts anything on the instance. For a
+   rollback point and restoring, use ComfyUI-Manager's snapshot feature.
 2. Never execute untrusted code or data. Nodes are parsed, not run. Models are
    inspected at the opcode level, not loaded.
 3. Offline-first. A full run works air-gapped. No deployment data leaves the host.
@@ -182,31 +147,26 @@ not as engine rewrites. Full detail in [CONCEPT.md](CONCEPT.md).
 1. **Assess.** `audit` across the core layers, the threat feed, `report.json`,
    `report.md`, and `FIXES.md`, plus the agent skills. Covers most documented
    incident classes on its own.
-2. **Verify, snapshot, and breadth.** `comfyguard verify` with fingerprint
-   diffing; `snapshot` and `diff` with the DRIFT family (tamper and drift
-   detection); SARIF output; the CycloneDX ML-BOM; and the secrets and host
-   extensions.
-3. **Restore and freshness.** `restore` (read-only plan plus the opt-in `--apply`
-   rollback that delegates to `comfy node restore-snapshot`); signature-verified
-   feed refresh; YARA family rules; secret scanning with baselines; and workflow
-   and PNG-metadata analysis.
-4. **Continuous use.** A CI action, scheduled re-scans with drift diffing, and an
-   optional local dashboard.
+2. **Verify and breadth.** `comfyguard verify` with fingerprint diffing; SARIF
+   output; the CycloneDX ML-BOM; and broader offline check coverage.
+3. **Freshness.** Signature-verified feed refresh; YARA family rules; secret
+   scanning with baselines; and workflow and PNG-metadata analysis.
+4. **Continuous use.** A CI action, scheduled re-scans, and an optional local
+   dashboard.
 
 ## 8. Success criteria
 
 - One command tells an operator whether an instance is safe to expose, with a
   clear grade and the reasons, and changes nothing on the instance.
-- A coding agent can read `FIXES.md`, apply the fixes under their gates, and use
-  `comfyguard verify` to prove they worked.
+- A coding agent can read `FIXES.md`, apply the fixes under their gates, and
+  re-run `audit` to prove they worked.
 - The whole thing runs offline, is safe to run on production, and installs nothing
   into ComfyUI.
 
 ## 9. Non-goals
 
 - It is not a fixer. Assessment changes nothing; a separate agent does the
-  forward fixing. The only change ComfyGuard itself makes is the opt-in
-  `restore --apply` rollback to a captured snapshot.
+  forward fixing, and ComfyUI-Manager's snapshot feature provides the rollback.
 - It is not a runtime firewall, antivirus, or sandbox.
 - It does not replace the Comfy Registry or ComfyUI-Manager; it audits how they
   are configured and what they installed.

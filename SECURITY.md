@@ -17,17 +17,17 @@ us reasonable time to address the issue before any public disclosure.
 
 ## Scope
 
-In scope is anything in this repository: the scanner and its logic, the report and
-snapshot handling, the ruleset, and the agent skills. Because ComfyGuard is
+In scope is anything in this repository: the scanner and its logic, the report
+handling, the ruleset, and the agent skills. Because ComfyGuard is strictly
 read-only by design, the issues we care most about are:
 
-- A path where the tool could change a scanned instance without an explicit
-  `restore --apply`.
-- A path where scanning a hostile target (a crafted node, model, workflow, or
-  snapshot) could execute code, read data outside the scan, or exfiltrate anything
-  from the host running ComfyGuard.
-- Secret values leaking into a report or snapshot (both are designed to record
-  names and locations only, never secret values).
+- A path where the tool could change a scanned instance at all (it must only ever
+  write its own report artifacts).
+- A path where scanning a hostile target (a crafted node, model, or workflow)
+  could execute code, read data outside the scan, or exfiltrate anything from the
+  host running ComfyGuard.
+- Secret values leaking into a report (it is designed to record names and
+  locations only, never secret values).
 
 ## Out of scope
 

@@ -12,8 +12,8 @@ PRODUCTION_WARNING = (
     "ComfyGuard is a starting point, not a turnkey fix.\n"
     "Applying changes to a deployed or production ComfyUI instance can break "
     "running pipelines and workflows.\n"
-    "Review every proposed change, back up or snapshot first, test in a safe "
-    "environment, and roll out carefully.\n"
+    "Review every proposed change, back up first (ComfyUI-Manager's snapshot "
+    "feature is a good rollback point), test in a safe environment, and roll out carefully.\n"
     "ComfyGuard changes nothing on your instance. Every item in FIXES.md is a "
     "proposal for a human or agent to weigh, not an instruction to apply blindly."
 )

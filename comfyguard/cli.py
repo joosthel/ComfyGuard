@@ -1,7 +1,8 @@
 """ComfyGuard command-line interface.
 
-Phase 1 implements `audit` (read-only). snapshot/diff/restore are specified in
-docs/SNAPSHOT.md and are stubbed here until a later phase.
+Phase 1 implements `audit` (read-only). `verify` (re-assess and diff the report)
+is planned. For capturing a rollback point and restoring, use ComfyUI-Manager's
+built-in snapshot feature; ComfyGuard does not reimplement it.
 """
 
 from __future__ import annotations
@@ -88,8 +89,9 @@ def _iso(ts):
 
 def _not_yet(name):
     def run(args):
-        print(f"`comfyguard {name}` is specified in docs/SNAPSHOT.md but not implemented in Phase 1.\n"
-              f"Phase 1 ships `audit`. {name} is planned next.", file=sys.stderr)
+        print(f"`comfyguard {name}` is planned but not implemented yet.\n"
+              f"Phase 1 ships `audit`. For now, re-run `comfyguard audit` and diff the reports.",
+              file=sys.stderr)
         return 4
     return run
 
@@ -124,8 +126,8 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--no-fail", action="store_true", help="Always exit 0 regardless of findings.")
     a.set_defaults(func=cmd_audit)
 
-    for name in ("snapshot", "diff", "restore"):
-        sp = sub.add_parser(name, help="(planned) see docs/SNAPSHOT.md")
+    for name in ("verify",):
+        sp = sub.add_parser(name, help="(planned) re-assess and diff against a prior report")
         sp.add_argument("args", nargs="*", help="(accepted but ignored until implemented)")
         sp.set_defaults(func=_not_yet(name))
 

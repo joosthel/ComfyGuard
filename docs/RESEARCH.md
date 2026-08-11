@@ -274,9 +274,9 @@ obfuscation; verified publishers via "Claim My Node"; `comfy node validate` runs
 Ruff security rules. These are provenance signals ComfyGuard recommends preferring.
 
 Still absent, so they become recommendations rather than assumptions: no built-in
-auth (audit the proxy layer), no custom-node signing (so ComfyGuard's hash-based
-tamper detection, DRIFT-001/005, is the integrity signal), and no shipped desktop
-sandbox (reinforces the containment recommendation).
+auth (audit the proxy layer), no custom-node signing (so static node and pickle
+inspection plus trusted provenance are the integrity signals ComfyGuard leans on),
+and no shipped desktop sandbox (reinforces the containment recommendation).
 
 Sources: `SECURITY.md`, `comfy/cli_args.py`, `server.py`, `app/user_manager.py`,
 `folder_paths.py` (Comfy-Org/ComfyUI, master); Comfy-Org/ComfyUI GHSA advisories

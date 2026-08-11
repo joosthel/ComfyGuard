@@ -39,27 +39,24 @@ An instance meets the baseline when all of these hold:
 
 ## The workflow
 
-1. **Snapshot first.** Before changing anything, run
-   `comfyguard snapshot <path> --out ./baseline` to capture a known-good rollback
-   point. This is read-only. See the
-   [comfyguard-restore](skills/comfyguard-restore/SKILL.md) skill.
+1. **Capture a rollback point first.** Before changing anything, take a backup.
+   ComfyUI-Manager's snapshot feature (`comfy node save-snapshot`, or the Manager
+   UI) captures node and package state; also note the core git commit. ComfyGuard
+   does not manage snapshots itself.
 2. **Read the report.** Load `report.json` (the source of truth) and `FIXES.md`
    (the ordered, gated plan). Do not re-derive findings yourself; act on the ones
    ComfyGuard found.
 3. **Work the plan in order.** Contain first (quarantine known-malicious nodes and
    models), then configuration, then patches, then secrets.
-4. **One change at a time.** Make a change, then run `comfyguard verify` and
+4. **One change at a time.** Make a change, then re-run `comfyguard audit` and
    confirm the finding cleared by its fingerprint before moving on.
-5. **Roll back if a change breaks the instance.** Use
-   `comfyguard restore ./baseline/snapshot.json --target <path>` and confirm with
-   `comfyguard diff --against ./baseline/snapshot.json <path>` (an empty diff
-   means you are back to the baseline).
-6. **Verify at the end.** The task is done when the addressed findings clear and
-   nothing regressed.
+5. **Roll back if a change breaks the instance.** Restore from the ComfyUI-Manager
+   snapshot you took (`comfy node restore-snapshot`) and re-check the core commit.
+6. **Verify at the end.** Re-run `comfyguard audit`; the task is done when the
+   addressed findings clear, the grade improved, and the workflows still run.
 
-`restore --apply` is the one ComfyGuard command that changes an instance, and it
-is gated like any other change: confirm with the operator, and it never deletes
-(it quarantines).
+ComfyGuard is read-only: it never changes the instance. Every fix is yours to make
+under the operator's supervision and the gates in the report.
 
 ## Do
 
@@ -78,9 +75,9 @@ is gated like any other change: confirm with the operator, and it never deletes
 - Do not execute a flagged node or load a flagged model to "check" it.
 - Do not rotate, move, or print a live secret. Flag it for the credential owner.
 - Do not restart or redeploy a production service on your own.
-- Do not run `comfyguard restore --apply` without operator confirmation. It is
-  the one command that changes the instance; the dry-run (no `--apply`) is safe
-  and only writes a plan. Every other ComfyGuard command only reads and reports.
+- Do not expect ComfyGuard to change the instance; it is read-only and only reads
+  and reports. Every fix is yours to apply, under the gates and with operator
+  confirmation.
 
 ## Gates you must honor
 

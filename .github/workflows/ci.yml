@@ -24,6 +24,6 @@ jobs:
       - name: CLI smoke (version + usage exit codes)
         run: |
           python -m comfyguard --version
-          # planned stubs exit 4, not the audit critical code
+          # the planned verify stub exits 4, not the audit critical code
           set +e
-          python -m comfyguard snapshot .; test $? -eq 4 || (echo "snapshot stub exit code wrong" && exit 1)
+          python -m comfyguard verify .; test $? -eq 4 || (echo "verify stub exit code wrong" && exit 1)

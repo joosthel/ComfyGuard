@@ -20,7 +20,7 @@ Steps, the command you ran, and any relevant output. Do not paste secrets.
 
 **Finding involved (if any)**
 
-The check ID (for example `NODE-003`, `DRIFT-001`) and whether you think it is a
+The check ID (for example `NODE-003`, `EXP-002`) and whether you think it is a
 false positive or a false negative.
 
 **Environment**
