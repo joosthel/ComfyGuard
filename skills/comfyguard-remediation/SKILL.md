@@ -9,6 +9,12 @@ ComfyGuard assessed a ComfyUI deployment and wrote a report. Your job is to fix
 the findings safely. ComfyGuard changed nothing; every change is yours to make,
 under the operator's supervision and the gates in the report.
 
+> **Warning: this is a production instance.** Applying changes to a deployed
+> ComfyUI can break running pipelines and workflows. ComfyGuard is a starting
+> point, not a turnkey fix. Back up before every change, make one change at a
+> time, test in a safe environment, and get operator confirmation for anything
+> `review-required` or `human-only`. When in doubt, propose and stop.
+
 ## Inputs
 
 - `report.json`: the source of truth. Structured findings plus a bill of
@@ -19,14 +25,14 @@ under the operator's supervision and the gates in the report.
 If you only have one of `report.json` or `FIXES.md`, use it. They carry the same
 findings; `report.json` is machine-precise, `FIXES.md` is ordered for action.
 
-## Before you start: snapshot for rollback
+## Before you start: back up
 
-Take a baseline before your first change, so a fix that breaks the instance is
-recoverable: `comfyguard snapshot <path> --out ./baseline` (read-only). If a
-change breaks something, roll back with
-`comfyguard restore ./baseline/snapshot.json --target <path>` and confirm with
-`comfyguard diff --against ./baseline/snapshot.json <path>`. The
-[comfyguard-restore](../comfyguard-restore/SKILL.md) skill covers this in full.
+Capture a rollback point before your first change. In Phase 1, that means a plain
+backup: copy the files you will touch, and for the ComfyUI tree note the current
+git commit (`git -C <path> rev-parse HEAD`) and the installed node/pip versions.
+Keep the backup paths in your notes so any change is reversible. (A dedicated
+`comfyguard snapshot` command that captures full state is planned; until then, use
+ordinary backups.)
 
 ## How to read a finding
 
@@ -85,13 +91,15 @@ either misses the biggest risk or breaks the instance:
 
 After each change (or a small batch of related ones):
 
-1. Run `comfyguard verify <path> --against <the prior report.json>`.
-2. Confirm the finding you addressed cleared, matched by `fingerprint`.
-3. Confirm no new findings appeared.
+1. Re-run `comfyguard audit <path> --out ./after` and compare against the prior
+   `report.json`.
+2. Confirm the finding you addressed is gone (match by `fingerprint`), the grade
+   improved, and no new findings appeared.
+3. Confirm the instance's pipelines still run before returning it to service.
 
-The task is complete only when the addressed findings clear on a `verify` run and
-nothing regressed. Reporting "fixed" without a passing verify does not meet the
-contract. Leave `human-only` findings open with a clear note of the decision the
-operator needs to make (whether the instance should be reachable at all, whether a
-flagged node is needed enough to keep and sandbox, whether an upgrade's
-compatibility risk is acceptable).
+The task is complete only when a re-scan confirms the addressed findings cleared,
+nothing regressed, and the workflows still work. Reporting "fixed" without a
+passing re-scan does not meet the contract. Leave `human-only` findings open with
+a clear note of the decision the operator needs to make (whether the instance
+should be reachable at all, whether a flagged node is needed enough to keep and
+sandbox, whether an upgrade's compatibility risk is acceptable).

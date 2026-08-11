@@ -3,7 +3,7 @@
 Read-only security evaluation for ComfyUI, with a report your coding agent can act on.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-0057ff.svg)](LICENSE)
-![Status: design and spec](https://img.shields.io/badge/status-design%20%26%20spec-9aa4b2.svg)
+![Status: Phase 1 (audit)](https://img.shields.io/badge/status-Phase%201%20audit-0057ff.svg)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-1f9d55.svg)](CONTRIBUTING.md)
 
 ComfyGuard evaluates an existing ComfyUI installation, writes a report, and can
@@ -16,11 +16,34 @@ Assessment is read-only: `audit`, `verify`, `snapshot`, and `diff` change nothin
 on the instance. The one exception is `restore --apply`, an opt-in, guarded
 rollback to a captured snapshot.
 
-**Status:** design and specification stage. This repository holds the concept,
-specification, threat research, check catalog, reporting contract, snapshot
-format, agent skills, and worked examples. There is no installable release yet;
-the Python implementation follows this spec. The command-line tool will be
-`comfyguard`.
+**Status:** Phase 1 is implemented. The `comfyguard audit` command is a working,
+dependency-free CLI that read-only scans an install and writes `report.json`,
+`report.md`, and an agent-ready `FIXES.md`. `snapshot`, `diff`, and `restore` are
+specified (see [docs/SNAPSHOT.md](docs/SNAPSHOT.md)) and are stubbed in the CLI
+until a later phase. The repository also holds the concept, threat research, check
+catalog, reporting contract, agent skills, and worked examples.
+
+## Install and run
+
+Requires Python 3.10+ and no third-party packages.
+
+```
+git clone https://github.com/joosthel/ComfyGuard && cd ComfyGuard
+pip install -e .            # or: pipx install .
+comfyguard audit /path/to/ComfyUI --out ./comfyguard-report
+# or without installing:
+python -m comfyguard audit /path/to/ComfyUI --out ./comfyguard-report
+```
+
+This reads the install and writes the report; it changes nothing. Add
+`--url http://127.0.0.1:8188 --authorized` to also make a read-only network probe
+of a running instance **you are authorized to test**. `comfyguard audit` exits
+non-zero when a critical finding exists, so it fits CI.
+
+> ComfyGuard is a starting point, not a turnkey fix. Applying its proposed changes
+> to a production ComfyUI instance can break running pipelines. Review every
+> change, back up first, and test in a safe environment. See `FIXES.md` and the
+> [agent skills](skills/).
 
 ## Why this exists
 
@@ -155,26 +178,21 @@ The reporting and remediation contract is in [docs/REPORTING.md](docs/REPORTING.
 the snapshot and drift format is in [docs/SNAPSHOT.md](docs/SNAPSHOT.md), with
 worked examples in [examples/](examples/).
 
-## Planned usage
+## Command reference
 
 ```
-# Assess an installation (read-only, safe anywhere you have access):
-comfyguard audit /opt/comfyui --out ./report
+# Phase 1, implemented and read-only:
+comfyguard audit /path/to/ComfyUI --out ./comfyguard-report
+comfyguard audit /path/to/ComfyUI --url http://127.0.0.1:8188 --authorized
 
-# Capture a known-good baseline before anyone touches it:
-comfyguard snapshot /opt/comfyui --out ./baseline
+# Hand report.json and FIXES.md to a coding agent (Claude Code or similar) with
+# the skills in skills/, then let it work the plan under the gates, with an
+# operator confirming every review-required and human-only change.
 
-# Hand the report to a coding agent (Claude Code or similar) with the skills
-# in skills/, then let it work through FIXES.md under the gates.
-
-# Re-assess and diff to verify the agent's fixes:
-comfyguard verify /opt/comfyui --against ./report/report.json
-
-# Later, check for drift or tampering against the baseline:
-comfyguard diff --against ./baseline/snapshot.json /opt/comfyui
-
-# If a change broke the instance, roll back (dry-run; add --apply to perform it):
-comfyguard restore ./baseline/snapshot.json --target /opt/comfyui
+# Planned (specified in docs/SNAPSHOT.md, stubbed in the CLI for now):
+comfyguard snapshot /path/to/ComfyUI --out ./baseline
+comfyguard diff --against ./baseline/snapshot.json /path/to/ComfyUI
+comfyguard restore ./baseline/snapshot.json --target /path/to/ComfyUI
 ```
 
 ## Roadmap

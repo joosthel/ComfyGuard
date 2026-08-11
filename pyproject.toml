@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comfyguard"
+version = "0.1.0"
+description = "Read-only security evaluation for ComfyUI, with a report your coding agent can act on."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Joost Helfers" }]
+keywords = ["comfyui", "security", "scanner", "static-analysis", "devsecops"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Security",
+  "Environment :: Console",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/joosthel/ComfyGuard"
+Repository = "https://github.com/joosthel/ComfyGuard"
+
+[project.scripts]
+comfyguard = "comfyguard.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["comfyguard*"]

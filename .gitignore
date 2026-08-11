@@ -25,3 +25,8 @@ build/
 # Local scan output
 /report/
 *.sarif
+
+# ComfyGuard scan output
+/comfyguard-report/
+/_testout/
+/_clean*/
